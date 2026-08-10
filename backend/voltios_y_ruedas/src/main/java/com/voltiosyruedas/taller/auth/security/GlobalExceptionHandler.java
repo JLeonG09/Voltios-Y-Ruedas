@@ -1,7 +1,9 @@
 package com.voltiosyruedas.taller.auth.security;
 
+import com.voltiosyruedas.taller.common.exception.ErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -13,7 +15,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -25,12 +29,15 @@ public class GlobalExceptionHandler {
             errores.put(error.getField(), error.getDefaultMessage());
         }
 
+        List<String> detalles = errores.entrySet().stream()
+                .map(e -> "Campo '" + e.getKey() + "': " + e.getValue())
+                .collect(Collectors.toList());
+
         ErrorResponse response = ErrorResponse.builder()
+                .código("VALIDATION_ERROR")
+                .mensaje("Datos de entrada inválidos")
+                .detalles(detalles)
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Error de validación")
-                .message("Datos de entrada inválidos")
-                .validationErrors(errores)
                 .build();
 
         return ResponseEntity.badRequest().body(response);
@@ -44,24 +51,48 @@ public class GlobalExceptionHandler {
             errores.put(field, violation.getMessage());
         });
 
+        List<String> detalles = errores.entrySet().stream()
+                .map(e -> "Campo '" + e.getKey() + "': " + e.getValue())
+                .collect(Collectors.toList());
+
         ErrorResponse response = ErrorResponse.builder()
+                .código("VALIDATION_ERROR")
+                .mensaje("Restricciones violadas")
+                .detalles(detalles)
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Error de validación")
-                .message("Restricciones violadas")
-                .validationErrors(errores)
                 .build();
 
         return ResponseEntity.badRequest().body(response);
     }
 
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        String mensaje = "Conflicto de datos";
+        String detalle = ex.getMostSpecificCause().getMessage();
+        
+        if (detalle != null && detalle.contains("duplicate key")) {
+            mensaje = "El recurso ya existe";
+        } else if (detalle != null && detalle.contains("foreign key")) {
+            mensaje = "No se puede eliminar: existen registros relacionados";
+        }
+
+        ErrorResponse response = ErrorResponse.builder()
+                .código("DATA_INTEGRITY_ERROR")
+                .mensaje(mensaje)
+                .detalles(List.of(detalle != null ? detalle : "Error de integridad de datos"))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(EntityNotFoundException ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("NOT_FOUND")
+                .mensaje("Recurso no encontrado")
+                .detalles(List.of(ex.getMessage()))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.NOT_FOUND.value())
-                .error("Recurso no encontrado")
-                .message(ex.getMessage())
                 .build();
 
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
@@ -70,10 +101,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("UNAUTHORIZED")
+                .mensaje("Credenciales inválidas")
+                .detalles(List.of("El email o la contraseña son incorrectos"))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.UNAUTHORIZED.value())
-                .error("No autorizado")
-                .message("Credenciales inválidas")
                 .build();
 
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(response);
@@ -82,10 +113,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("FORBIDDEN")
+                .mensaje("Acceso denegado")
+                .detalles(List.of("No tiene permisos para realizar esta acción"))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.FORBIDDEN.value())
-                .error("Acceso denegado")
-                .message("No tiene permisos para realizar esta acción")
                 .build();
 
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
@@ -94,10 +125,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("BAD_REQUEST")
+                .mensaje("Solicitud inválida")
+                .detalles(List.of(ex.getMessage()))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error("Solicitud inválida")
-                .message(ex.getMessage())
                 .build();
 
         return ResponseEntity.badRequest().body(response);
@@ -106,10 +137,10 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("INTERNAL_ERROR")
+                .mensaje("Error interno del servidor")
+                .detalles(List.of(ex.getMessage()))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error("Error interno del servidor")
-                .message(ex.getMessage())
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
@@ -118,25 +149,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
         ErrorResponse response = ErrorResponse.builder()
+                .código("INTERNAL_ERROR")
+                .mensaje("Ha ocurrido un error inesperado")
+                .detalles(List.of("Error interno del servidor"))
                 .timestamp(LocalDateTime.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error("Error interno del servidor")
-                .message("Ha ocurrido un error inesperado")
                 .build();
 
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
-    }
-
-    @lombok.Data
-    @lombok.Builder
-    @lombok.NoArgsConstructor
-    @lombok.AllArgsConstructor
-    public static class ErrorResponse {
-        private LocalDateTime timestamp;
-        private int status;
-        private String error;
-        private String message;
-        private String path;
-        private Map<String, String> validationErrors;
     }
 }
