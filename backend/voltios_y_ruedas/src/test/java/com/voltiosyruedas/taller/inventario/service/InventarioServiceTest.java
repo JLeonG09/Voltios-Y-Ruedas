@@ -224,7 +224,6 @@ class InventarioServiceTest {
                 .build();
 
         when(inventarioRepository.findById(1L)).thenReturn(Optional.of(inventario));
-        when(inventarioRepository.findByCodigo("REP-001")).thenReturn(Optional.of(inventario));
         when(inventarioRepository.save(any(Inventario.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         Inventario resultado = inventarioService.actualizar(1L, updateRequest);

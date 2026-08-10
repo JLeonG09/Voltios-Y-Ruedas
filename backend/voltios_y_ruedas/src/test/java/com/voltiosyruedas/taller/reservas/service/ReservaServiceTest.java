@@ -197,8 +197,6 @@ class ReservaServiceTest {
 
     @Test
     void eliminar_deberiaEliminarReserva() {
-        when(reservaRepository.existsById(1L)).thenReturn(true);
-
         reservaService.eliminar(1L);
 
         verify(reservaRepository, times(1)).deleteById(1L);

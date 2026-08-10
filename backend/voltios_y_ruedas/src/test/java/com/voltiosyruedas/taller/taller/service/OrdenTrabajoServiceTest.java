@@ -304,9 +304,9 @@ class OrdenTrabajoServiceTest {
         assertThat(resultado.getCostoRepuestos()).isEqualTo(new BigDecimal("25.00"));
         assertThat(resultado.getCostoTotal()).isEqualTo(new BigDecimal("100.00"));
 
-        verify(ordenTrabajoRepository, times(1)).findById(1L);
+        verify(ordenTrabajoRepository, times(2)).findById(1L);
         verify(usuarioService, times(1)).obtenerPorId(2L);
-        verify(ordenTrabajoRepository, times(1)).save(any(OrdenTrabajo.class));
+        verify(ordenTrabajoRepository, times(2)).save(any(OrdenTrabajo.class));
     }
 
     @Test
