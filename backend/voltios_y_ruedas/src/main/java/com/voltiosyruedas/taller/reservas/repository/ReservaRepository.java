@@ -1,0 +1,21 @@
+package com.voltiosyruedas.taller.reservas.repository;
+
+import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.reservas.entity.Reserva;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Repository
+public interface ReservaRepository extends JpaRepository<Reserva, Long> {
+    List<Reserva> findByCliente(Usuario cliente);
+
+    List<Reserva> findByFechaHoraBetween(LocalDateTime inicio, LocalDateTime fin);
+
+    @Query("SELECT r FROM Reserva r WHERE r.cliente = :cliente AND r.fechaHora >= :fecha")
+    List<Reserva> findByClienteAndFechaHoraAfter(@Param("cliente") Usuario cliente, @Param("fecha") LocalDateTime fecha);
+}

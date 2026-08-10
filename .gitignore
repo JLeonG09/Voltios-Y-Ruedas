@@ -1,0 +1,41 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Backend
+/backend/voltios_y_ruedas/target/
+/backend/voltios_y_ruedas/.mvn/
+*.class
+*.jar
+*.war
+.DS_Store
+
+# Frontend
+/frontend/node_modules/
+/frontend/dist/
+/frontend/.env.local
+/frontend/.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+logs/
+*.log
+
+# Keystores
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+.gradle/
+build/
+EOF
