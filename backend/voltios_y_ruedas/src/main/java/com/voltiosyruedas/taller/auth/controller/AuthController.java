@@ -5,6 +5,7 @@ import com.voltiosyruedas.taller.auth.dto.LoginRequest;
 import com.voltiosyruedas.taller.auth.dto.RegisterRequest;
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.security.TokenBlacklistService;
 import com.voltiosyruedas.taller.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -22,10 +23,11 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@Tag(name = "Autenticación", description = "Endpoints de login, registro y gestión de tokens JWT")
+@Tag(name = "Autenticación", description = "Endpoints de login, registro, logout y gestión de tokens JWT")
 public class AuthController {
 
     private final AuthService authService;
+    private final TokenBlacklistService tokenBlacklistService;
 
     @PostMapping("/login")
     @Operation(
@@ -64,6 +66,35 @@ public class AuthController {
                 .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/logout")
+    @Operation(
+        summary = "Cerrar sesión",
+        description = "Invalida el token JWT actual agregándolo a la lista negra",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Logout exitoso"
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "No autenticado - Token JWT faltante o inválido",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        )
+    })
+    public ResponseEntity<Void> logout(Authentication authentication) {
+        String authHeader = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getCredentials().toString();
+        
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            tokenBlacklistService.blacklistToken(token, 86400000);
+        }
+        
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/register")
