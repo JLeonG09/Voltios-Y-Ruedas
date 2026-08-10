@@ -17,7 +17,9 @@ WORKDIR /app
 
 # Create non-root user for security
 RUN addgroup -g 1000 -S appgroup && \
-    adduser -u 1000 -S appuser -G appgroup
+    adduser -u 1000 -S appuser -G appgroup && \
+    mkdir -p /app/logs && \
+    chown -R appuser:appgroup /app/logs
 
 # Copy built jar from builder
 COPY --from=builder /app/target/*.jar app.jar
