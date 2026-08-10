@@ -6,6 +6,13 @@ import com.voltiosyruedas.taller.auth.dto.RegisterRequest;
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,11 +22,33 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Autenticación", description = "Endpoints de login, registro y gestión de tokens JWT")
 public class AuthController {
 
     private final AuthService authService;
 
     @PostMapping("/login")
+    @Operation(
+        summary = "Iniciar sesión",
+        description = "Autentica un usuario con email y contraseña, retorna un token JWT firmado"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Login exitoso",
+            content = @Content(schema = @Schema(implementation = JwtResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Datos de entrada inválidos",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "Credenciales inválidas",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        )
+    })
     public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request) {
         String token = authService.login(request);
         Usuario usuario = (Usuario) org.springframework.security.core.context.SecurityContextHolder
@@ -38,6 +67,27 @@ public class AuthController {
     }
 
     @PostMapping("/register")
+    @Operation(
+        summary = "Registrar nuevo usuario",
+        description = "Crea un nuevo usuario en el sistema con rol CLIENTE por defecto"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Usuario registrado exitosamente",
+            content = @Content(schema = @Schema(implementation = UsuarioResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Datos de entrada inválidos",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "409",
+            description = "El email ya está registrado",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        )
+    })
     public ResponseEntity<UsuarioResponse> register(@Valid @RequestBody RegisterRequest request) {
         Usuario usuario = authService.registrar(request);
         
@@ -62,6 +112,23 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @Operation(
+        summary = "Obtener usuario autenticado",
+        description = "Retorna la información del usuario actualmente autenticado mediante el token JWT",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Usuario autenticado",
+            content = @Content(schema = @Schema(implementation = UsuarioResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "401",
+            description = "No autenticado - Token JWT faltante o inválido",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        )
+    })
     public ResponseEntity<UsuarioResponse> getCurrentUser(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         
