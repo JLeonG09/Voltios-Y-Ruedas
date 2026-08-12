@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, Filter, User, ChevronDown, Edit, Trash2, Shield, Mail, Phone, MapPin, Key } from 'lucide-react';
+import { Plus, Search, Filter, User, ChevronDown, Edit, Trash2, Shield, Mail, Phone, MapPin, Key, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
@@ -14,6 +14,7 @@ import { formatDateTime, getEstadoColor } from '../utils/helpers';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { useEffect } from 'react';
+import { useDebounce } from '../hooks/useDebounce';
 import type { Usuario } from '../types/auth';
 
 type UsuarioWithRelations = Usuario & {
@@ -29,10 +30,12 @@ export const UsuariosPage = () => {
   const [totalPages, setTotalPages] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 350);
   const [rolFilter, setRolFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<UsuarioWithRelations | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const isAdmin = user?.rol?.nombre === 'ADMIN';
 
   const columns: Column<UsuarioWithRelations>[] = [
@@ -82,10 +85,15 @@ export const UsuariosPage = () => {
   const fetchUsuarios = async () => {
     setLoading(true);
     try {
-      const response = await usuarioService.listar(page - 1, 10);
+      const rolId = rolFilter ? Number(rolFilter) : undefined;
+      const response = await usuarioService.listar(page - 1, 10, debouncedSearch, rolId);
       setUsuarios(response.content);
-      setTotalPages(Math.ceil(response.totalElements / 10));
+      const totalPaginas = Math.max(1, Math.ceil(response.totalElements / 10));
+      setTotalPages(totalPaginas);
       setTotalItems(response.totalElements);
+      if (page > totalPaginas) {
+        setPage(totalPaginas);
+      }
     } catch (error) {
       addNotification({ type: 'error', title: 'Error', message: 'No se pudieron cargar los usuarios' });
     } finally {
@@ -95,7 +103,7 @@ export const UsuariosPage = () => {
 
   useEffect(() => {
     fetchUsuarios();
-  }, [page, search, rolFilter]);
+  }, [page, debouncedSearch, rolFilter]);
 
   const handleEdit = (usuario: UsuarioWithRelations) => {
     setEditingUsuario(usuario);
@@ -183,23 +191,21 @@ export const UsuariosPage = () => {
                   type="text"
                   placeholder="Buscar por nombre, email..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="w-full pl-10 pr-4 py-2.5 border border-surface-300 dark:border-surface-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:bg-surface-800 dark:text-white dark:placeholder:text-surface-500"
                 />
               </div>
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
-                <Select
-                  value={rolFilter}
-                  onChange={(e) => setRolFilter(e.target.value)}
-                  options={[
-                    { value: '', label: 'Todos los roles' },
-                    ...rolOptions,
-                  ]}
-                  placeholder="Filtrar por rol"
-                  className="w-full sm:w-48"
-                />
-              </div>
+              <Select
+                value={rolFilter}
+                onChange={(e) => { setRolFilter(e.target.value); setPage(1); }}
+                options={[
+                  { value: '', label: 'Todos los roles' },
+                  ...rolOptions,
+                ]}
+                placeholder="Filtrar por rol"
+                leftIcon={<Filter className="h-5 w-5" />}
+                className="w-full sm:w-48"
+              />
             </div>
           </div>
 
@@ -259,10 +265,20 @@ export const UsuariosPage = () => {
           {!editingUsuario && (
             <Input
               {...register('password')}
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               label="Contraseña *"
               placeholder="••••••••"
               leftIcon={<Key className="h-5 w-5" />}
+              rightIcon={
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300"
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              }
               error={errors.password?.message}
             />
           )}

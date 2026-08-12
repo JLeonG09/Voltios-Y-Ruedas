@@ -1,4 +1,5 @@
-import { InputHTMLAttributes, forwardRef, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
+import { InputHTMLAttributes, forwardRef, isValidElement, TextareaHTMLAttributes, SelectHTMLAttributes } from 'react';
+import { ChevronDown } from 'lucide-react';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -7,6 +8,12 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
 }
+
+// Un icono a la derecha puede ser interactivo (p. ej. el botón del ojo para
+// mostrar/ocultar contraseña). Si es un <button>, se re-habilita el pointer
+// events que el contenedor desactiva para no bloquear el clic del input.
+const esIconoInteractivo = (node: React.ReactNode): boolean =>
+  isValidElement(node) && (node.type === 'button' || (node.type as { displayName?: string })?.displayName === 'IconButton');
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, error, helperText, leftIcon, rightIcon, className = '', id, ...props }, ref) => {
@@ -39,7 +46,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           />
           {rightIcon && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-surface-400 dark:text-surface-500">
-              {rightIcon}
+              {esIconoInteractivo(rightIcon) ? <span className="pointer-events-auto">{rightIcon}</span> : rightIcon}
             </div>
           )}
         </div>
@@ -106,10 +113,11 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
   helperText?: string;
   options: { value: string; label: string }[];
   placeholder?: string;
+  leftIcon?: React.ReactNode;
 }
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, helperText, options, placeholder, className = '', id, ...props }, ref) => {
+  ({ label, error, helperText, options, placeholder, leftIcon, className = '', id, ...props }, ref) => {
     const selectId = id || `select-${Math.random().toString(36).substr(2, 9)}`;
     const errorId = `${selectId}-error`;
     const helperId = `${selectId}-helper`;
@@ -121,25 +129,35 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
             {label}
           </label>
         )}
-        <select
-          ref={ref}
-          id={selectId}
-          className={`w-full px-4 py-2.5 border rounded-xl bg-white dark:bg-surface-800 text-surface-900 dark:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 appearance-none pr-10 ${error ? 'border-danger-500 focus:ring-danger-500/20 focus:border-danger-500' : 'border-surface-300 dark:border-surface-700 focus:border-brand-500'} ${className}`}
-          aria-invalid={error ? 'true' : 'false'}
-          aria-describedby={error ? errorId : helperText ? helperId : undefined}
-          {...props}
-        >
-          {placeholder && (
-            <option value="" disabled>
-              {placeholder}
-            </option>
+        <div className="relative">
+          {leftIcon && (
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-surface-400 dark:text-surface-500">
+              {leftIcon}
+            </div>
           )}
-          {options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          <select
+            ref={ref}
+            id={selectId}
+            className={`w-full px-4 py-2.5 border rounded-xl bg-white dark:bg-surface-800 text-surface-900 dark:text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 appearance-none pr-10 ${leftIcon ? 'pl-10' : ''} ${error ? 'border-danger-500 focus:ring-danger-500/20 focus:border-danger-500' : 'border-surface-300 dark:border-surface-700 focus:border-brand-500'} ${className}`}
+            aria-invalid={error ? 'true' : 'false'}
+            aria-describedby={error ? errorId : helperText ? helperId : undefined}
+            {...props}
+          >
+            {placeholder && (
+              <option value="" disabled>
+                {placeholder}
+              </option>
+            )}
+            {options.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-surface-400 dark:text-surface-500">
+            <ChevronDown className="h-4 w-4" />
+          </div>
+        </div>
         {error && (
           <p id={errorId} className="mt-1.5 text-sm text-danger-600 dark:text-danger-400 flex items-center gap-1" role="alert">
             <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">

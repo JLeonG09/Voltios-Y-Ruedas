@@ -5,6 +5,18 @@ Todos los cambios notables de **Voltios y Ruedas** se documentan en este archivo
 El formato se basa en [Keep a Changelog](https://keepachangelog.com/es/1.1.0/)
 y el proyecto respeta [Versionado Semántico](https://semver.org/lang/es/).
 
+## [Sin publicar] - 2026-08-12
+
+### Corregido
+
+- **Reservas (backend):** `/api/reservas` devolvía la entidad `Reserva` directamente; su `cliente` es una proxy lazy de Hibernate y fallaba la serialización JSON con `HTTP 500` (`ByteBuddyInterceptor`), rompiendo la página de reservas y el dashboard para el personal. Ahora los endpoints devuelven el DTO `ReservaResponse` (mismo campo `cliente` con `nombreCompleto`), igual que el módulo de órdenes.
+- **Dashboard (frontend):** para el rol `CLIENTE` se llamaba a `/api/inventario/stock-bajo` (prohibido para clientes), lo que devolvía `401` y el interceptor cerraba la sesión. Ahora ese dato solo se pide cuando el usuario es staff.
+- **Usuarios (filtros):** los filtros de búsqueda y por rol de la página de usuarios no filtraban nada: el service y el endpoint `/api/usuarios` no aceptaban los parámetros. Ahora `GET /api/usuarios` acepta `search` y `rol` (JPQL parametrizada) y el frontend los envía con búsqueda con debounce.
+- **Tablas (frontend):** responsividad mejorada. En pantallas menores a `md` cada fila se muestra como tarjeta apilable (etiqueta + valor), y en escritorio se mantiene la tabla con scroll horizontal. Aplica a reservas, usuarios, órdenes e inventario.
+- **Filtros (frontend):** al filtrar/buscar se resetea a la primera página y se corrige la página si supera el total de resultados, evitando que la tabla quede vacía al aplicar un filtro.
+- **Campo de filtro (frontend):** el icono de filtro se superponía sobre el texto del `select`. El componente `Select` ahora soporta `leftIcon` y muestra su chevrón (antes `appearance-none` ocultaba la flecha nativa sin reemplazo).
+- **Contraseña (frontend):** el botón de ojo para mostrar/ocultar contraseña no funcionaba porque el contenedor del icono tenía `pointer-events-none`. Ahora el `rightIcon` interactivo (botón) recibe clics; se agregó el ojo funcional a los campos de contraseña de perfil, configuración (seguridad) y creación de usuarios.
+
 ## [Sin publicar] - 2026-08-11
 
 ### Agregado (backend)

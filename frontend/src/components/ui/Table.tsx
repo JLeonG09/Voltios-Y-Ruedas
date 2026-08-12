@@ -118,41 +118,75 @@ export function Table<T>({
   }
 
   return (
-    <div className={`overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 ${className}`} {...props}>
-      <table className="w-full text-sm">
-        <thead className="bg-surface-50 dark:bg-surface-800">
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                className={`px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none ${column.sortable && sortable ? 'hover:bg-surface-100 dark:hover:bg-surface-700' : ''} ${column.className || ''} ${alignClasses[column.align || 'left']}`}
-                style={{ width: column.width }}
-                onClick={() => handleSort(column.key)}
-              >
-                <div className="flex items-center gap-1 justify-start">
-                  {column.header}
-                  {column.sortable && sortable && getSortIcon(column.key)}
+    <div className={`rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 ${className}`} {...props}>
+      {/* Vista móvil: cada fila se renderiza como una tarjeta apilable */}
+      <div className="md:hidden divide-y divide-surface-100 dark:divide-surface-800">
+        {data.map((item, index) => (
+          <div
+            key={keyExtractor(item)}
+            onClick={() => onRowClick?.(item)}
+            className={`px-4 py-3 ${hoverable ? 'transition-colors hover:bg-surface-50 dark:hover:bg-surface-800/50' : ''} ${striped && index % 2 === 1 ? 'bg-surface-50/50 dark:bg-surface-800/40' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
+          >
+            {columns
+              .filter((column) => column.key !== 'actions')
+              .map((column) => (
+                <div key={column.key} className="flex items-start justify-between gap-4 py-1.5">
+                  <span className="text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider flex-shrink-0 pt-0.5">
+                    {column.header}
+                  </span>
+                  <span className="text-sm text-surface-700 dark:text-surface-200 text-right break-words">
+                    {column.render ? column.render(item, index) : (item as Record<string, unknown>)[column.key] as React.ReactNode}
+                  </span>
                 </div>
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white dark:bg-surface-900 divide-y divide-surface-100 dark:divide-surface-800">
-          {data.map((item, index) => (
-            <tr
-              key={keyExtractor(item)}
-              className={`${hoverable ? 'transition-colors hover:bg-surface-50 dark:hover:bg-surface-800' : ''} ${striped && index % 2 === 1 ? 'bg-surface-50/50 dark:bg-surface-800/40' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
-              onClick={() => onRowClick?.(item)}
-            >
+              ))}
+            {columns
+              .filter((column) => column.key === 'actions')
+              .map((column) => (
+                <div key={column.key} className="flex items-center justify-end gap-2 pt-2 mt-1.5 border-t border-dashed border-surface-100 dark:border-surface-800">
+                  {column.render?.(item, index)}
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
+
+      {/* Tabla en pantallas ≥ md */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-50 dark:bg-surface-800">
+            <tr>
               {columns.map((column) => (
-                <td key={column.key} className={`px-4 py-3.5 text-surface-700 dark:text-surface-200 ${alignClasses[column.align || 'left']} ${column.className || ''}`}>
-                  {column.render ? column.render(item, index) : (item as Record<string, unknown>)[column.key] as React.ReactNode}
-                </td>
+                <th
+                  key={column.key}
+                  className={`px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none ${column.sortable && sortable ? 'hover:bg-surface-100 dark:hover:bg-surface-700' : ''} ${column.className || ''} ${alignClasses[column.align || 'left']}`}
+                  style={{ width: column.width }}
+                  onClick={() => handleSort(column.key)}
+                >
+                  <div className="flex items-center gap-1 justify-start">
+                    {column.header}
+                    {column.sortable && sortable && getSortIcon(column.key)}
+                  </div>
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="bg-white dark:bg-surface-900 divide-y divide-surface-100 dark:divide-surface-800">
+            {data.map((item, index) => (
+              <tr
+                key={keyExtractor(item)}
+                className={`${hoverable ? 'transition-colors hover:bg-surface-50 dark:hover:bg-surface-800' : ''} ${striped && index % 2 === 1 ? 'bg-surface-50/50 dark:bg-surface-800/40' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
+                onClick={() => onRowClick?.(item)}
+              >
+                {columns.map((column) => (
+                  <td key={column.key} className={`px-4 py-3.5 text-surface-700 dark:text-surface-200 ${alignClasses[column.align || 'left']} ${column.className || ''}`}>
+                    {column.render ? column.render(item, index) : (item as Record<string, unknown>)[column.key] as React.ReactNode}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

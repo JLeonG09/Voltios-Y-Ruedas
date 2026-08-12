@@ -83,14 +83,18 @@ export const ReservasPage = () => {
     resolver: zodResolver(reservaSchema),
   });
 
-  const fetchReservas = async (termino = search) => {
+  const fetchReservas = async (termino = debouncedSearch) => {
     setLoading(true);
     try {
       if (isAdminOrJefe || isMecanico) {
         const response = await reservaService.listar(page - 1, 10, termino, estadoFilter);
         setReservas(response.content as ReservaWithCliente[]);
-        setTotalPages(Math.ceil(response.totalElements / 10));
+        const totalPaginas = Math.max(1, Math.ceil(response.totalElements / 10));
+        setTotalPages(totalPaginas);
         setTotalItems(response.totalElements);
+        if (page > totalPaginas) {
+          setPage(totalPaginas);
+        }
       } else {
         const data = await reservaService.misReservas();
         setReservas(data as ReservaWithCliente[]);
@@ -192,27 +196,25 @@ export const ReservasPage = () => {
                   type="text"
                   placeholder="Buscar por cliente, servicio..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   className="w-full pl-10 pr-4 py-2.5 border border-surface-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-surface-700 dark:bg-surface-800 dark:text-white dark:placeholder:text-surface-500"
                 />
               </div>
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
-                <Select
-                  value={estadoFilter}
-                  onChange={(e) => setEstadoFilter(e.target.value)}
-                  options={[
-                    { value: '', label: 'Todos los estados' },
-                    { value: 'PENDIENTE', label: 'Pendiente' },
-                    { value: 'CONFIRMADA', label: 'Confirmada' },
-                    { value: 'EN_PROCESO', label: 'En proceso' },
-                    { value: 'COMPLETADA', label: 'Completada' },
-                    { value: 'CANCELADA', label: 'Cancelada' },
-                  ]}
-                  placeholder="Filtrar estado"
-                  className="w-full sm:w-48"
-                />
-              </div>
+              <Select
+                value={estadoFilter}
+                onChange={(e) => { setEstadoFilter(e.target.value); setPage(1); }}
+                options={[
+                  { value: '', label: 'Todos los estados' },
+                  { value: 'PENDIENTE', label: 'Pendiente' },
+                  { value: 'CONFIRMADA', label: 'Confirmada' },
+                  { value: 'EN_PROCESO', label: 'En proceso' },
+                  { value: 'COMPLETADA', label: 'Completada' },
+                  { value: 'CANCELADA', label: 'Cancelada' },
+                ]}
+                placeholder="Filtrar estado"
+                leftIcon={<Filter className="h-5 w-5" />}
+                className="w-full sm:w-48"
+              />
             </div>
           </div>
 

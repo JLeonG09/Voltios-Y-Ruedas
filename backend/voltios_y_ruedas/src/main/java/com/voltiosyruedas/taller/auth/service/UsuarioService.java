@@ -33,8 +33,12 @@ public class UsuarioService implements UserDetailsService {
     private final ObjectMapper objectMapper;
     private final AuditService auditService;
 
-    public Page<Usuario> listar(Pageable pageable) {
-        return usuarioRepository.findAll(pageable);
+    public Page<Usuario> listar(Pageable pageable, String search, Long rolId) {
+        String termino = (search == null || search.isBlank()) ? null : search.trim();
+        if (termino == null && rolId == null) {
+            return usuarioRepository.findAll(pageable);
+        }
+        return usuarioRepository.filtrar(rolId, termino, pageable);
     }
 
     public List<Usuario> listarTodos() {

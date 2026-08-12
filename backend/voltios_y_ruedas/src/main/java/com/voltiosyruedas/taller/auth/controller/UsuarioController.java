@@ -25,8 +25,12 @@ public class UsuarioController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<Page<UsuarioResponse>> listar(Pageable pageable) {
-        Page<UsuarioResponse> respuesta = usuarioService.listar(pageable).map(usuarioService::toResponse);
+    public ResponseEntity<Page<UsuarioResponse>> listar(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long rol,
+            Pageable pageable) {
+        Page<UsuarioResponse> respuesta = usuarioService.listar(pageable, search, rol)
+                .map(usuarioService::toResponse);
         return ResponseEntity.ok(respuesta);
     }
 

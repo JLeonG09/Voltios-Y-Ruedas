@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Bell, Moon, Sun, Shield, Palette, Database, User, Key, Save, Loader2, Check, type LucideIcon } from 'lucide-react';
+import { Bell, Moon, Sun, Shield, Palette, Database, User, Key, Save, Loader2, Check, Eye, EyeOff, type LucideIcon } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Select, Switch } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
@@ -61,6 +61,25 @@ export const ConfiguracionPage = () => {
   const [activeTab, setActiveTab] = useState<TabId>('general');
   const [loadingPreferencias, setLoadingPreferencias] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [visiblePassword, setVisiblePassword] = useState<{ actual: boolean; nueva: boolean; confirmar: boolean }>({
+    actual: false,
+    nueva: false,
+    confirmar: false,
+  });
+
+  const togglePassword = (campo: keyof typeof visiblePassword) =>
+    setVisiblePassword((prev) => ({ ...prev, [campo]: !prev[campo] }));
+
+  const botonOjo = (campo: keyof typeof visiblePassword, visible: boolean) => (
+    <button
+      type="button"
+      onClick={() => togglePassword(campo)}
+      className="text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300"
+      aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+    >
+      {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+    </button>
+  );
 
   const tabs: { id: TabId; label: string; icon: LucideIcon }[] = [
     { id: 'general', label: 'General', icon: User },
@@ -336,26 +355,29 @@ export const ConfiguracionPage = () => {
             <form onSubmit={handleSubmit(changePassword)} className="space-y-5 max-w-md">
               <Input
                 {...register('passwordActual', { required: 'Contraseña actual requerida' })}
-                type="password"
+                type={visiblePassword.actual ? 'text' : 'password'}
                 label="Contraseña actual"
                 placeholder="••••••••"
                 leftIcon={<Key className="h-5 w-5" />}
+                rightIcon={botonOjo('actual', visiblePassword.actual)}
                 error={errors.passwordActual?.message}
               />
               <Input
                 {...register('passwordNueva', { required: 'Nueva contraseña requerida', minLength: { value: 6, message: 'Mínimo 6 caracteres' } })}
-                type="password"
+                type={visiblePassword.nueva ? 'text' : 'password'}
                 label="Nueva contraseña"
                 placeholder="••••••••"
                 leftIcon={<Key className="h-5 w-5" />}
+                rightIcon={botonOjo('nueva', visiblePassword.nueva)}
                 error={errors.passwordNueva?.message}
               />
               <Input
                 {...register('confirmarPassword', { required: 'Confirmar contraseña requerida' })}
-                type="password"
+                type={visiblePassword.confirmar ? 'text' : 'password'}
                 label="Confirmar nueva contraseña"
                 placeholder="••••••••"
                 leftIcon={<Key className="h-5 w-5" />}
+                rightIcon={botonOjo('confirmar', visiblePassword.confirmar)}
                 error={errors.confirmarPassword?.message}
               />
               {passwordNueva && (

@@ -2,9 +2,12 @@ import { api } from './api';
 import type { Usuario } from '../types';
 
 export const usuarioService = {
-  listar: async (page = 0, size = 10): Promise<{ content: Usuario[]; totalElements: number }> => {
+  listar: async (page = 0, size = 10, search = '', rol?: number): Promise<{ content: Usuario[]; totalElements: number }> => {
+    const params: Record<string, string | number> = { page, size, sort: 'nombre,asc' };
+    if (search) params.search = search;
+    if (rol) params.rol = rol;
     const response = await api.get<{ content: Usuario[]; totalElements: number }>('/api/usuarios', {
-      params: { page, size, sort: 'nombre,asc' },
+      params,
     });
     return response.data;
   },

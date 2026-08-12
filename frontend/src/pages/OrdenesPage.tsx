@@ -257,9 +257,7 @@ export const OrdenesPage = () => {
                   className="w-full pl-10 pr-4 py-2.5 border border-surface-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-surface-700 dark:bg-surface-800 dark:text-white dark:placeholder:text-surface-500"
                 />
               </div>
-              <div className="relative">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
-                <Select
+              <Select
                   value={estadoFilter}
                   onChange={(e) => setEstadoFilter(e.target.value)}
                   options={[
@@ -267,9 +265,9 @@ export const OrdenesPage = () => {
                     ...estadosOrden.map(e => ({ value: e, label: getEstadoLabel(e) })),
                   ]}
                   placeholder="Filtrar estado"
+                  leftIcon={<Filter className="h-5 w-5" />}
                   className="w-full sm:w-48"
                 />
-              </div>
             </div>
           </div>
 

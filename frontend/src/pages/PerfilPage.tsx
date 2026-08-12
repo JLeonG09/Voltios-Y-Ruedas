@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { User, Key, Phone, MapPin, Save } from 'lucide-react';
+import { User, Key, Phone, MapPin, Save, Eye, EyeOff } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardContent } from '../components/ui/Card';
@@ -46,6 +46,25 @@ export default function PerfilPage() {
   const { addNotification } = useUIStore();
   const [savingPerfil, setSavingPerfil] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [visiblePassword, setVisiblePassword] = useState<{ actual: boolean; nueva: boolean; confirmar: boolean }>({
+    actual: false,
+    nueva: false,
+    confirmar: false,
+  });
+
+  const togglePassword = (campo: keyof typeof visiblePassword) =>
+    setVisiblePassword((prev) => ({ ...prev, [campo]: !prev[campo] }));
+
+  const botonOjo = (campo: keyof typeof visiblePassword, visible: boolean) => (
+    <button
+      type="button"
+      onClick={() => togglePassword(campo)}
+      className="text-surface-400 hover:text-surface-600 dark:text-surface-500 dark:hover:text-surface-300"
+      aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+    >
+      {visible ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+    </button>
+  );
 
   const perfilForm = useForm<PerfilFormData>({
     resolver: zodResolver(perfilSchema),
@@ -169,28 +188,31 @@ export default function PerfilPage() {
               <form onSubmit={passwordForm.handleSubmit(cambiarPassword)} className="space-y-5 max-w-md">
                 <Input
                   {...passwordForm.register('passwordActual')}
-                  type="password"
+                  type={visiblePassword.actual ? 'text' : 'password'}
                   label="Contraseña actual"
                   placeholder="••••••••"
                   leftIcon={<Key className="h-5 w-5" />}
+                  rightIcon={botonOjo('actual', visiblePassword.actual)}
                   error={passwordForm.formState.errors.passwordActual?.message}
                   disabled={savingPassword}
                 />
                 <Input
                   {...passwordForm.register('nuevaPassword')}
-                  type="password"
+                  type={visiblePassword.nueva ? 'text' : 'password'}
                   label="Nueva contraseña"
                   placeholder="••••••••"
                   leftIcon={<Key className="h-5 w-5" />}
+                  rightIcon={botonOjo('nueva', visiblePassword.nueva)}
                   error={passwordForm.formState.errors.nuevaPassword?.message}
                   disabled={savingPassword}
                 />
                 <Input
                   {...passwordForm.register('confirmarPassword')}
-                  type="password"
+                  type={visiblePassword.confirmar ? 'text' : 'password'}
                   label="Confirmar nueva contraseña"
                   placeholder="••••••••"
                   leftIcon={<Key className="h-5 w-5" />}
+                  rightIcon={botonOjo('confirmar', visiblePassword.confirmar)}
                   error={passwordForm.formState.errors.confirmarPassword?.message}
                   disabled={savingPassword}
                 />
