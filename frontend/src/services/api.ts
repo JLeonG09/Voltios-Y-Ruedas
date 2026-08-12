@@ -1,7 +1,18 @@
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
+import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
+import type { JwtResponse } from '../types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// En producción/Docker, VITE_API_URL se deja vacío a propósito para que las
+// llamadas sean relativas (mismo origen) y nginx haga de proxy reverso.
+// Si la variable existe pero está vacía o solo tiene espacios, también
+// caemos al modo relativo. Si hay un valor explícito, lo respetamos
+// (útil para entornos donde el frontend no vive detrás del mismo proxy).
+const envApiUrl = import.meta.env.VITE_API_URL?.trim();
+const API_BASE_URL = envApiUrl && envApiUrl.length > 0 ? envApiUrl : '';
+
+// Comparte la renovación en curso para no lanzar varias peticiones de refresh
+// a la vez cuando varias llamadas fallan con 401 de forma simultánea.
+let refreshPromise: Promise<string | null> | null = null;
 
 class ApiClient {
   private client: AxiosInstance;
@@ -28,34 +39,82 @@ class ApiClient {
 
     this.client.interceptors.response.use(
       (response) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          useAuthStore.getState().logout();
-          window.location.href = '/login';
+      async (error: AxiosError) => {
+        const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+        const status = error.response?.status;
+        const url = original?.url ?? '';
+
+        if (status === 401 && original && !original._retry && !url.includes('/api/auth/refresh')) {
+          original._retry = true;
+          const newToken = await this.renovarToken();
+          if (newToken) {
+            original.headers = original.headers ?? {};
+            original.headers.Authorization = `Bearer ${newToken}`;
+            return this.client(original);
+          }
+        }
+
+        if (status === 401) {
+          this.cerrarSesion();
         }
         return Promise.reject(error);
       }
     );
   }
 
-  get<T>(url: string, params?: object) {
-    return this.client.get<T>(url, { params });
+  private async renovarToken(): Promise<string | null> {
+    const { refreshToken } = useAuthStore.getState();
+    if (!refreshToken) return null;
+
+    if (!refreshPromise) {
+      refreshPromise = this.client
+        .post<JwtResponse>('/api/auth/refresh', { refreshToken })
+        .then((res) => {
+          const data = res.data;
+          useAuthStore.getState().setTokens(data.token, data.refreshToken ?? refreshToken);
+          return data.token;
+        })
+        .catch(() => {
+          this.cerrarSesion();
+          return null;
+        })
+        .finally(() => {
+          refreshPromise = null;
+        });
+    }
+    return refreshPromise;
   }
 
-  post<T>(url: string, data?: object) {
-    return this.client.post<T>(url, data);
+  private cerrarSesion() {
+    // Notifica al backend para invalidar (blacklist) el refresh token.
+    const refreshToken = useAuthStore.getState().refreshToken;
+    if (refreshToken) {
+      this.client.post('/api/auth/logout', { refreshToken }).catch(() => undefined);
+    }
+    useAuthStore.getState().logout();
+    if (window.location.pathname !== '/login') {
+      window.location.href = '/login';
+    }
   }
 
-  put<T>(url: string, data?: object) {
-    return this.client.put<T>(url, data);
+  get<T>(url: string, config?: AxiosRequestConfig) {
+    return this.client.get<T>(url, config);
   }
 
-  patch<T>(url: string, data?: object) {
-    return this.client.patch<T>(url, data);
+  post<T>(url: string, data?: object, config?: AxiosRequestConfig) {
+    return this.client.post<T>(url, data, config);
   }
 
-  delete<T>(url: string) {
-    return this.client.delete<T>(url);
+  put<T>(url: string, data?: object, config?: AxiosRequestConfig) {
+    return this.client.put<T>(url, data, config);
+  }
+
+  patch<T>(url: string, data?: object, config?: AxiosRequestConfig) {
+    return this.client.patch<T>(url, data, config);
+  }
+
+  delete<T>(url: string, config?: AxiosRequestConfig) {
+    return this.client.delete<T>(url, config);
   }
 }
 

@@ -1,20 +1,41 @@
 import { z } from 'zod';
 
+// Solo letras (incluye acentos y ñ), espacios, apóstrofes, guiones y puntos.
+const regexSoloLetras = /^[\p{L}\p{M}'. -]+$/u;
+
+// Email estricto: parte local de 2+ caracteres, dominio con al menos 2 caracteres
+// antes del punto y un TLD de 2+ letras (rechaza casos tipo "2@m.com").
+const regexEmail = /^[a-zA-Z0-9._%+-]{2,}@[a-zA-Z0-9-]{2,}(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
+
 export const loginSchema = z.object({
-  email: z.string().email('Email inválido').min(1, 'El email es obligatorio'),
+  email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
 
+export const recuperarPasswordSchema = z.object({
+  email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
+});
+
+export type RecuperarPasswordFormData = z.infer<typeof recuperarPasswordSchema>;
+
 export const registerSchema = z.object({
-  nombre: z.string().min(1, 'El nombre es obligatorio').max(100, 'Máximo 100 caracteres'),
-  apellido: z.string().min(1, 'El apellido es obligatorio').max(100, 'Máximo 100 caracteres'),
-  email: z.string().email('Email inválido').min(1, 'El email es obligatorio'),
+  nombre: z
+    .string()
+    .min(1, 'El nombre es obligatorio')
+    .max(100, 'Máximo 100 caracteres')
+    .regex(regexSoloLetras, 'El nombre solo puede contener letras'),
+  apellido: z
+    .string()
+    .min(1, 'El apellido es obligatorio')
+    .max(100, 'Máximo 100 caracteres')
+    .regex(regexSoloLetras, 'El apellido solo puede contener letras'),
+  email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(255),
   telefono: z.string().max(20, 'Máximo 20 caracteres').optional(),
   direccion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  rolId: z.number().optional(),
+  rolId: z.coerce.number().optional(),
 });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
@@ -23,6 +44,7 @@ export const reservaSchema = z.object({
   fechaHora: z.string().min(1, 'La fecha y hora son obligatorias'),
   categoriaServicio: z.string().max(100, 'Máximo 100 caracteres').optional(),
   descripcion: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
+  mecanicoId: z.number().optional(),
 });
 
 export type ReservaFormData = z.infer<typeof reservaSchema>;

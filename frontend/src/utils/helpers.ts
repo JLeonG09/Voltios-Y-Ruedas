@@ -19,10 +19,11 @@ export const formatDateTime = (dateString: string): string => {
 };
 
 export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('es-ES', {
+  return new Intl.NumberFormat('es-CR', {
     style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
+    currency: 'CRC',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
   }).format(amount);
 };
 
@@ -37,15 +38,15 @@ export const getEstadoOrdenLabel = (estado: string): string => {
   return labels[estado] || estado;
 };
 
-export const getEstadoOrdenColor = (estado: string): string => {
-  const colors: Record<string, string> = {
-    RECIEN_INGRESADO: 'badge-info',
-    POR_INGRESAR: 'badge-warning',
-    TRABAJANDO: 'badge-primary',
-    TERMINADO: 'badge-success',
-    ENTREGADO: 'badge-gray',
+export const getEstadoOrdenColor = (estado: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' | 'gray' => {
+  const colors: Record<string, 'success' | 'warning' | 'info' | 'primary' | 'danger' | 'gray'> = {
+    RECIEN_INGRESADO: 'info',
+    POR_INGRESAR: 'warning',
+    TRABAJANDO: 'primary',
+    TERMINADO: 'success',
+    ENTREGADO: 'gray',
   };
-  return colors[estado] || 'badge-gray';
+  return colors[estado] || 'gray';
 };
 
 export const getEstadoReservaLabel = (estado: string): string => {
@@ -59,16 +60,22 @@ export const getEstadoReservaLabel = (estado: string): string => {
   return labels[estado] || estado;
 };
 
-export const getEstadoReservaColor = (estado: string): string => {
-  const colors: Record<string, string> = {
-    PENDIENTE: 'badge-warning',
-    CONFIRMADA: 'badge-info',
-    EN_PROCESO: 'badge-primary',
-    COMPLETADA: 'badge-success',
-    CANCELADA: 'badge-danger',
+export const getEstadoReservaColor = (estado: string): 'success' | 'warning' | 'info' | 'primary' | 'danger' | 'gray' => {
+  const colors: Record<string, 'success' | 'warning' | 'info' | 'primary' | 'danger' | 'gray'> = {
+    PENDIENTE: 'warning',
+    CONFIRMADA: 'info',
+    EN_PROCESO: 'primary',
+    COMPLETADA: 'success',
+    CANCELADA: 'danger',
   };
-  return colors[estado] || 'badge-gray';
+  return colors[estado] || 'gray';
 };
+
+// Aliases for backward compatibility
+export const getReservaEstadoLabel = getEstadoReservaLabel;
+export const getReservaEstadoColor = getEstadoReservaColor;
+export const getEstadoLabel = getEstadoOrdenLabel;
+export const getEstadoColor = getEstadoOrdenColor;
 
 export const generateId = (): string => {
   return Math.random().toString(36).substr(2, 9);

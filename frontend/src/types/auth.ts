@@ -41,6 +41,32 @@ export interface JwtResponse {
   apellido: string;
   email: string;
   rol: string;
+  refreshToken?: string;
+}
+
+export interface RefreshTokenRequest {
+  refreshToken: string;
+}
+
+export interface RecuperarPasswordRequest {
+  email: string;
+}
+
+export interface ReestablecerPasswordRequest {
+  token: string;
+  password: string;
+}
+
+export interface CambiarPasswordRequest {
+  passwordActual: string;
+  nuevaPassword: string;
+}
+
+export interface ActualizarPerfilRequest {
+  nombre?: string;
+  apellido?: string;
+  telefono?: string;
+  direccion?: string;
 }
 
 export interface UsuarioResponse {
@@ -54,4 +80,5 @@ export interface UsuarioResponse {
   fechaCreacion: string;
   fechaActualizacion: string;
   rol: Rol;
+  nombreCompleto?: string;
 }

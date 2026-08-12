@@ -1,13 +1,31 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { authService } from '../../services/authService';
-import { registerSchema, type RegisterFormData } from '../../utils/validation';
-import { useUIStore } from '../../store/uiStore';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Lock,
+  Mail,
+  User,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Phone,
+  MapPin,
+} from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Button } from "../components/ui/Button";
+import { Input, Select } from "../components/ui/Input";
+import { Card } from "../components/ui/Card";
+import { registerSchema, type RegisterFormData } from "../utils/validation";
+import { useAuthStore } from "../store/authStore";
+import { useUIStore } from "../store/uiStore";
+import { authService } from "../services/authService";
+
+const rolOptions = [
+  { value: "4", label: "Cliente" },
+  { value: "3", label: "Mecánico" },
+  { value: "2", label: "Jefe de Taller" },
+  { value: "1", label: "Administrador" },
+];
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -18,109 +36,149 @@ export const RegisterPage = () => {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
+    defaultValues: {
+      rolId: 4,
+    },
   });
+
+  const password = watch("password") || "";
 
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     try {
       await authService.register(data);
       addNotification({
-        type: 'success',
-        title: '¡Cuenta creada!',
-        message: 'Tu cuenta ha sido creada exitosamente. Ahora puedes iniciar sesión.',
+        type: "success",
+        title: "¡Bienvenido!",
+        message: "Tu cuenta ha sido creada correctamente",
       });
-      navigate('/login');
+      navigate("/login");
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Error al crear la cuenta';
-      addNotification({
-        type: 'error',
-        title: 'Error',
-        message,
-      });
+      const message =
+        error instanceof Error ? error.message : "Error al registrarse";
+      addNotification({ type: "error", title: "Error", message });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="text-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Crear cuenta</h2>
-        <p className="text-gray-600 mt-1">Regístrate para acceder al sistema</p>
+        <h2 className="text-2xl font-bold text-surface-900 dark:text-white">
+          Crear cuenta
+        </h2>
+        <p className="text-surface-500 dark:text-surface-400 mt-1">
+          Únete a Voltios y Ruedas
+        </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Input
+            {...register("nombre")}
+            label="Nombre"
+            placeholder="Juan"
+            leftIcon={<User className="h-5 w-5" />}
+            error={errors.nombre?.message}
+            disabled={loading}
+          />
+          <Input
+            {...register("apellido")}
+            label="Apellido"
+            placeholder="Pérez"
+            leftIcon={<User className="h-5 w-5" />}
+            error={errors.apellido?.message}
+            disabled={loading}
+          />
+        </div>
+
         <Input
-          label="Nombre"
-          placeholder="Juan"
-          error={errors.nombre?.message}
-          {...register('nombre')}
+          {...register("email")}
+          type="email"
+          label="Correo electrónico"
+          placeholder="tu@email.com"
+          leftIcon={<Mail className="h-5 w-5" />}
+          error={errors.email?.message}
+          disabled={loading}
         />
+
         <Input
-          label="Apellido"
-          placeholder="Pérez"
-          error={errors.apellido?.message}
-          {...register('apellido')}
-        />
-      </div>
-
-      <Input
-        label="Email"
-        type="email"
-        placeholder="tu@email.com"
-        error={errors.email?.message}
-        {...register('email')}
-        autoComplete="email"
-      />
-
-      <Input
-        label="Teléfono"
-        type="tel"
-        placeholder="+34 600 000 000"
-        error={errors.telefono?.message}
-        {...register('telefono')}
-        autoComplete="tel"
-      />
-
-      <div className="relative">
-        <Input
+          {...register("password")}
+          type={showPassword ? "text" : "password"}
           label="Contraseña"
-          type={showPassword ? 'text' : 'password'}
           placeholder="••••••••"
+          leftIcon={<Lock className="h-5 w-5" />}
+          rightIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="text-surface-400 hover:text-surface-600"
+              aria-label={
+                showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+              }
+            >
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
+            </button>
+          }
+          helperText={
+            password.length > 0 && password.length < 6
+              ? "Mínimo 6 caracteres"
+              : undefined
+          }
           error={errors.password?.message}
-          {...register('password')}
-          autoComplete="new-password"
+          disabled={loading}
         />
-        <button
-          type="button"
-          className="absolute right-3 top-[38px] text-gray-400 hover:text-gray-600"
-          onClick={() => setShowPassword(!showPassword)}
-          aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-        >
-          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-        </button>
+
+        <Input
+          {...register("telefono")}
+          type="tel"
+          label="Teléfono (opcional)"
+          placeholder="+506 1234 5678"
+          leftIcon={<Phone className="h-5 w-5" />}
+          error={errors.telefono?.message}
+          disabled={loading}
+        />
+
+        <Input
+          {...register("direccion")}
+          label="Dirección (opcional)"
+          placeholder="Calle principal, San José"
+          leftIcon={<MapPin className="h-5 w-5" />}
+          error={errors.direccion?.message}
+          disabled={loading}
+        />
+
+        <Select
+          {...register("rolId")}
+          label="Rol"
+          options={rolOptions}
+          placeholder="Selecciona un rol"
+          error={errors.rolId?.message}
+          disabled={loading}
+        />
+
+        <Button type="submit" className="w-full" size="lg" loading={loading}>
+          Crear cuenta
+        </Button>
       </div>
 
-      <Input
-        label="Dirección"
-        placeholder="Calle Principal 123"
-        error={errors.direccion?.message}
-        {...register('direccion')}
-        autoComplete="street-address"
-      />
-
-      <Button type="submit" className="w-full" size="lg" loading={loading}>
-        {loading ? <Loader2 className="h-5 w-5" /> : 'Crear cuenta'}
-      </Button>
-
-      <p className="text-center text-sm text-gray-600">
-        ¿Ya tienes cuenta?{' '}
-        <a href="/login" className="text-primary-600 hover:text-primary-500 font-medium">
+      <p className="text-center text-sm text-surface-500 dark:text-surface-400">
+        ¿Ya tienes cuenta?{" "}
+        <Link
+          to="/login"
+          className="text-brand-600 hover:text-brand-700 font-medium"
+        >
           Inicia sesión
-        </a>
+        </Link>
       </p>
     </form>
   );
