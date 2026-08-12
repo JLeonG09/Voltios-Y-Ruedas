@@ -1,0 +1,75 @@
+# Blueprint de Render: despliegue completo (Postgres + Redis + backend + frontend).
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Cómo usar:
+#   1. Sube este archivo a la rama main del repositorio.
+#   2. En Render: "New +" -> "Blueprint" -> conecta el repositorio.
+#   3. Render crea las 4 instancias y despliega automáticamente en cada push a main.
+#
+# Nota: los nombres determinan los subdominios onrender.com:
+#   - API:      https://voltios-y-ruedas-api.onrender.com
+#   - Frontend: https://voltios-y-ruedas-frontend.onrender.com
+# Si cambias un nombre, actualiza CORS_ALLOWED_ORIGINS y VITE_API_URL.
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend Spring Boot (construido desde el Dockerfile)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: voltios-y-ruedas-api
+    runtime: docker
+    repo: https://github.com/JLeonG09/Proyecto-Voltios-Y-Ruedas.git
+    branch: main
+    dockerfilePath: backend/voltios_y_ruedas/Dockerfile
+    plan: free
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: voltios-y-ruedas-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: voltios-y-ruedas-redis
+          property: connectionString
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://voltios-y-ruedas-frontend.onrender.com
+      - key: JAVA_OPTS
+        value: -XX:MaxRAMPercentage=75.0
+
+  # ---------------------------------------------------------------------------
+  # Redis administrado (siempre bajo "services" con type: redis, no en databases)
+  # ---------------------------------------------------------------------------
+  - type: redis
+    name: voltios-y-ruedas-redis
+    plan: free
+    ipAllowList: []
+
+  # ---------------------------------------------------------------------------
+  # Frontend React (static site)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: voltios-y-ruedas-frontend
+    runtime: static
+    repo: https://github.com/JLeonG09/Proyecto-Voltios-Y-Ruedas.git
+    branch: main
+    rootDir: frontend
+    buildCommand: npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://voltios-y-ruedas-api.onrender.com
+
+databases:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL administrado
+  # ---------------------------------------------------------------------------
+  - name: voltios-y-ruedas-db
+    plan: free
+    databaseName: taller_db
+    ipAllowList: []
