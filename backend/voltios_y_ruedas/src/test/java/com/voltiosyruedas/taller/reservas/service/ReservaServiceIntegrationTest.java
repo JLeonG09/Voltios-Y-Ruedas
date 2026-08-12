@@ -98,7 +98,7 @@ class ReservaServiceIntegrationTest {
         reservaService.crear(cliente, request2);
 
         Pageable pageable = PageRequest.of(0, 10);
-        var page = reservaService.listar(pageable);
+        var page = reservaService.listar(pageable, null, null);
 
         assertThat(page.getTotalElements()).isEqualTo(2);
         assertThat(page.getContent()).hasSize(2);

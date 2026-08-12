@@ -20,8 +20,13 @@ public class ReservaService {
 
     private final ReservaRepository reservaRepository;
 
-    public Page<Reserva> listar(Pageable pageable) {
-        return reservaRepository.findAll(pageable);
+    public Page<Reserva> listar(Pageable pageable, String search, String estado) {
+        String termino = (search == null || search.isBlank()) ? null : search.trim();
+        String estadoFiltro = (estado == null || estado.isBlank()) ? null : estado;
+        if (termino == null && estadoFiltro == null) {
+            return reservaRepository.findAll(pageable);
+        }
+        return reservaRepository.filtrar(estadoFiltro, termino, pageable);
     }
 
     public List<Reserva> listarPorCliente(Usuario cliente) {

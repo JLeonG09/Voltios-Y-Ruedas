@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, Filter, Calendar, Clock, ChevronDown, Edit, Trash2, XCircle, CheckCircle } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Edit, Trash2, XCircle } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
@@ -9,9 +9,8 @@ import { Table, Column, Pagination } from '../components/ui/Table';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { reservaService } from '../services/reservaService';
-import { usuarioService } from '../services/usuarioService';
 import { reservaSchema, type ReservaFormData } from '../utils/validation';
-import { formatDateTime, getReservaEstadoLabel, getReservaEstadoColor } from '../utils/helpers';
+import { formatDateTime, getReservaEstadoLabel, getReservaEstadoColor, toDateTimeInputValue, toLocalInputValue } from '../utils/helpers';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { useDebounce } from '../hooks/useDebounce';
@@ -37,7 +36,6 @@ export const ReservasPage = () => {
   const [editingReserva, setEditingReserva] = useState<ReservaWithCliente | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
-  const [mecanicos, setMecanicos] = useState<{ value: string; label: string }[]>([]);
   const isAdminOrJefe = ['ADMIN', 'JEFE_TALLER'].includes(user?.rol?.nombre || '');
   const isMecanico = user?.rol?.nombre === 'MECANICO';
 
@@ -80,8 +78,6 @@ export const ReservasPage = () => {
     register,
     handleSubmit,
     reset,
-    setValue,
-    watch,
     formState: { errors },
   } = useForm<ReservaFormData>({
     resolver: zodResolver(reservaSchema),
@@ -108,24 +104,14 @@ export const ReservasPage = () => {
     }
   };
 
-  const fetchMecanicos = async () => {
-    try {
-      const data = await usuarioService.obtenerMecanicos();
-      setMecanicos(data.map(m => ({ value: m.id.toString(), label: m.nombreCompleto || '' })));
-    } catch (error) {
-      console.error('Error fetching mecanicos:', error);
-    }
-  };
-
   useEffect(() => {
     fetchReservas(debouncedSearch);
-    if (isAdminOrJefe) fetchMecanicos();
   }, [page, debouncedSearch, estadoFilter]);
 
   const handleEdit = (reserva: ReservaWithCliente) => {
     setEditingReserva(reserva);
     reset({
-      fechaHora: new Date(reserva.fechaHora).toISOString().slice(0, 16),
+      fechaHora: toDateTimeInputValue(reserva.fechaHora),
       categoriaServicio: reserva.categoriaServicio || '',
       descripcion: reserva.descripcion || '',
     });
@@ -135,7 +121,7 @@ export const ReservasPage = () => {
   const handleNew = () => {
     setEditingReserva(null);
     reset({
-      fechaHora: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+      fechaHora: toLocalInputValue(new Date(Date.now() + 3600000)),
     });
     setShowModal(true);
   };
@@ -279,19 +265,12 @@ export const ReservasPage = () => {
               ]}
               placeholder="Selecciona una categoría"
             />
-            <Select
-              {...register('mecanicoId', { valueAsNumber: true })}
-              label="Mecánico asignado"
-              options={mecanicos}
-              placeholder="Sin asignar"
+            <Input
+              {...register('descripcion')}
+              label="Descripción"
+              placeholder="Detalles de la cita..."
             />
           </div>
-
-          <Input
-            {...register('descripcion')}
-            label="Descripción"
-            placeholder="Detalles de la cita..."
-          />
 
           <div className="flex justify-end gap-3 pt-4 border-t border-surface-100 dark:border-surface-800">
             <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>

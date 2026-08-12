@@ -13,16 +13,14 @@ import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { reservaService } from '../services/reservaService';
 import type { Reserva } from '../types';
-import { formatDateTime, getReservaEstadoColor, getReservaEstadoLabel } from '../utils/helpers';
+import { formatDateTime, getReservaEstadoColor, getReservaEstadoLabel, toDateTimeInputValue } from '../utils/helpers';
 
 const reservaSchema = z.object({
   fechaHora: z.string().min(1, 'La fecha y hora son obligatorias'),
   categoriaServicio: z.string().max(100).optional(),
   descripcion: z.string().max(1000).optional(),
 });
-type ReservaForm = z.infer<typeof reservaForm>;
-
-const reservaForm = reservaSchema;
+type ReservaForm = z.infer<typeof reservaSchema>;
 
 const MisReservasPage = () => {
   const navigate = useNavigate();
@@ -35,7 +33,7 @@ const MisReservasPage = () => {
   const [cancelling, setCancelling] = useState<Reserva | null>(null);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<ReservaForm>({
-    resolver: zodResolver(reservaForm),
+    resolver: zodResolver(reservaSchema),
   });
 
   useEffect(() => {
@@ -66,7 +64,7 @@ const MisReservasPage = () => {
   const abrirEditar = (r: Reserva) => {
     setEditing(r);
     reset({
-      fechaHora: r.fechaHora ? new Date(r.fechaHora).toISOString().slice(0, 16) : '',
+      fechaHora: toDateTimeInputValue(r.fechaHora ?? ''),
       categoriaServicio: r.categoriaServicio ?? '',
       descripcion: r.descripcion ?? '',
     });
@@ -76,7 +74,7 @@ const MisReservasPage = () => {
   const guardar = async (data: ReservaForm) => {
     try {
       const payload = {
-        fechaHora: new Date(data.fechaHora).toISOString(),
+        fechaHora: data.fechaHora,
         categoriaServicio: data.categoriaServicio || undefined,
         descripcion: data.descripcion || undefined,
       };

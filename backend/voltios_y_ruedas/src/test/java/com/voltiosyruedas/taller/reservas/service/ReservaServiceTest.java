@@ -97,7 +97,7 @@ class ReservaServiceTest {
 
         when(reservaRepository.findAll(pageable)).thenReturn(page);
 
-        Page<Reserva> resultado = reservaService.listar(pageable);
+        Page<Reserva> resultado = reservaService.listar(pageable, null, null);
 
         assertThat(resultado).isNotNull();
         assertThat(resultado.getTotalElements()).isEqualTo(2);

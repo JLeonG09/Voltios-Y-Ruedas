@@ -55,7 +55,7 @@ class ReservaControllerTest {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Reserva> page = new PageImpl<>(List.of(reserva), pageable, 1);
 
-        when(reservaService.listar(any())).thenReturn(page);
+        when(reservaService.listar(any(), any(), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/reservas")
                         .with(csrf())

@@ -44,7 +44,6 @@ export const reservaSchema = z.object({
   fechaHora: z.string().min(1, 'La fecha y hora son obligatorias'),
   categoriaServicio: z.string().max(100, 'Máximo 100 caracteres').optional(),
   descripcion: z.string().max(1000, 'Máximo 1000 caracteres').optional(),
-  mecanicoId: z.number().optional(),
 });
 
 export type ReservaFormData = z.infer<typeof reservaSchema>;

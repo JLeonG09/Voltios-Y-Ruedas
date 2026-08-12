@@ -32,8 +32,11 @@ public class ReservaController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Page<Reserva>> listar(Pageable pageable) {
-        return ResponseEntity.ok(reservaService.listar(pageable));
+    public ResponseEntity<Page<Reserva>> listar(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String estado,
+            Pageable pageable) {
+        return ResponseEntity.ok(reservaService.listar(pageable, search, estado));
     }
 
     @GetMapping("/mis-reservas")

@@ -77,6 +77,15 @@ export const getReservaEstadoColor = getEstadoReservaColor;
 export const getEstadoLabel = getEstadoOrdenLabel;
 export const getEstadoColor = getEstadoOrdenColor;
 
+// Formatea una fecha Date como valor para <input type="datetime-local"> en hora local
+export const toLocalInputValue = (date: Date): string => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+// Corta una fecha ISO/hora local sin segundos ni offset ("2026-08-20T15:00:00" -> "2026-08-20T15:00")
+export const toDateTimeInputValue = (dateTime: string): string => dateTime.slice(0, 16);
+
 export const generateId = (): string => {
   return Math.random().toString(36).substr(2, 9);
 };
