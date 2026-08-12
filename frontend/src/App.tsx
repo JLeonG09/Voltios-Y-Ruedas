@@ -1,122 +1,97 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Suspense, lazy, type ReactElement } from 'react';
+import { MainLayout } from './components/layout/MainLayout';
+import { AuthLayout } from './components/layout/AuthLayout';
+import { ToastContainer } from './components/ui/ToastContainer';
+import { useAuthStore } from './store/authStore';
+import { Loader2 } from 'lucide-react';
+import './index.css';
+
+// Code-splitting: cada página se carga bajo demanda (React.lazy + Suspense)
+// para reducir el tamaño del bundle inicial y eliminar el warning de chunk > 500 kB.
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const RegisterPage = lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const RecuperarPasswordPage = lazy(() => import('./pages/RecuperarPasswordPage'));
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
+const ReservasPage = lazy(() => import('./pages/ReservasPage').then((m) => ({ default: m.ReservasPage })));
+const OrdenesPage = lazy(() => import('./pages/OrdenesPage').then((m) => ({ default: m.OrdenesPage })));
+const InventarioPage = lazy(() => import('./pages/InventarioPage').then((m) => ({ default: m.InventarioPage })));
+const UsuariosPage = lazy(() => import('./pages/UsuariosPage').then((m) => ({ default: m.UsuariosPage })));
+const ConfiguracionPage = lazy(() => import('./pages/ConfiguracionPage').then((m) => ({ default: m.ConfiguracionPage })));
+const PerfilPage = lazy(() => import('./pages/PerfilPage'));
+const MiVehiculoPage = lazy(() => import('./pages/MiVehiculoPage'));
+const MiHistorialPage = lazy(() => import('./pages/MiHistorialPage'));
+const MisReservasPage = lazy(() => import('./pages/MisReservasPage'));
+
+const RutaRaiz = () => {
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <LandingPage />;
+  if (user?.rol?.nombre === 'CLIENTE') return <Navigate to="/mi-vehiculo" replace />;
+  return <Navigate to="/dashboard" replace />;
+};
+
+const RutaCliente = ({ children }: { children: ReactElement }) => {
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (user?.rol?.nombre !== 'CLIENTE') return <Navigate to="/dashboard" replace />;
+  return children;
+};
+
+const RutaStaff = ({ children }: { children: ReactElement }) => {
+  const { isAuthenticated, user } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (user?.rol?.nombre === 'CLIENTE') return <Navigate to="/mi-vehiculo" replace />;
+  return children;
+};
+
+const RutaProtegida = ({ children }: { children: ReactElement }) => {
+  const { isAuthenticated } = useAuthStore();
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  return children;
+};
+
+const FallbackPagina = () => (
+  <div className="min-h-[60vh] flex items-center justify-center">
+    <Loader2 className="h-8 w-8 text-brand-500 animate-spin" />
+  </div>
+);
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <BrowserRouter>
+      <Suspense fallback={<FallbackPagina />}>
+        <Routes>
+          <Route path="/" element={<RutaRaiz />} />
 
-      <div className="ticks"></div>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
+          </Route>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          <Route element={<MainLayout />}>
+            <Route path="/dashboard" element={<RutaStaff><DashboardPage /></RutaStaff>} />
+            <Route path="/reservas" element={<RutaStaff><ReservasPage /></RutaStaff>} />
+            <Route path="/ordenes" element={<RutaStaff><OrdenesPage /></RutaStaff>} />
+            <Route path="/inventario" element={<RutaStaff><InventarioPage /></RutaStaff>} />
+            <Route path="/usuarios" element={<RutaStaff><UsuariosPage /></RutaStaff>} />
+            <Route path="/configuracion" element={<RutaStaff><ConfiguracionPage /></RutaStaff>} />
+            <Route path="/perfil" element={<RutaProtegida><PerfilPage /></RutaProtegida>} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+            <Route path="/mi-vehiculo" element={<RutaCliente><MiVehiculoPage /></RutaCliente>} />
+            <Route path="/mi-historial" element={<RutaCliente><MiHistorialPage /></RutaCliente>} />
+            <Route path="/mis-reservas" element={<RutaCliente><MisReservasPage /></RutaCliente>} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+      {/* Contenedor global de notificaciones: se monta una sola vez y
+          sobrevive a cualquier navegación. Escucha el array de Zustand. */}
+      <ToastContainer />
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

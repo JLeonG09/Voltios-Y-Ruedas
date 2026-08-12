@@ -4,3 +4,4 @@ export { reservaService } from './reservaService';
 export { ordenService } from './ordenService';
 export { inventarioService } from './inventarioService';
 export { usuarioService } from './usuarioService';
+export { vehiculoService } from './vehiculoService';

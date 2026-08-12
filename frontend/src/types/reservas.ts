@@ -11,6 +11,10 @@ export interface Reserva {
   fechaActualizacion: string;
 }
 
+export interface ReservaWithCliente extends Reserva {
+  cliente: UsuarioResponse & { nombreCompleto: string };
+}
+
 export interface ReservaRequest {
   fechaHora: string;
   descripcion?: string;

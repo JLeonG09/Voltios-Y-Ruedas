@@ -1,28 +1,25 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, Filter, Calendar, Clock, ChevronDown } from 'lucide-react';
-import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
-import { Modal, ConfirmDialog } from '../../components/ui/Modal';
-import { Table, Column, Pagination } from '../../components/ui/Table';
-import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
-import { reservaService } from '../../services/reservaService';
-import { usuarioService } from '../../services/usuarioService';
-import { reservaSchema, type ReservaFormData } from '../../utils/validation';
-import { formatDateTime, getReservaEstadoLabel, getReservaEstadoColor } from '../../utils/helpers';
-import { useAuthStore } from '../../store/authStore';
-import { useUIStore } from '../../store/uiStore';
+import { Plus, Search, Filter, Calendar, Clock, ChevronDown, Edit, Trash2, XCircle, CheckCircle } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Input, Select } from '../components/ui/Input';
+import { Modal, ConfirmDialog } from '../components/ui/Modal';
+import { Table, Column, Pagination } from '../components/ui/Table';
+import { Card, CardContent } from '../components/ui/Card';
+import { Badge } from '../components/ui/Badge';
+import { reservaService } from '../services/reservaService';
+import { usuarioService } from '../services/usuarioService';
+import { reservaSchema, type ReservaFormData } from '../utils/validation';
+import { formatDateTime, getReservaEstadoLabel, getReservaEstadoColor } from '../utils/helpers';
+import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
+import { useDebounce } from '../hooks/useDebounce';
 import { useEffect } from 'react';
+import type { Reserva } from '../types/reservas';
 
-type ReservaWithCliente = {
-  id: number;
-  cliente: { nombreCompleto: string; email: string };
-  fechaHora: string;
-  categoriaServicio?: string;
-  estado: string;
-  fechaCreacion: string;
+type ReservaWithCliente = Reserva & {
+  cliente: { id: number; nombreCompleto: string; email: string };
 };
 
 export const ReservasPage = () => {
@@ -32,12 +29,15 @@ export const ReservasPage = () => {
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 350);
   const [estadoFilter, setEstadoFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingReserva, setEditingReserva] = useState<ReservaWithCliente | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
-  const [mecanicos, setMecanicos] = useState<{ id: number; nombreCompleto: string }[]>([]);
+  const [showCancelConfirm, setShowCancelConfirm] = useState<number | null>(null);
+  const [mecanicos, setMecanicos] = useState<{ value: string; label: string }[]>([]);
   const isAdminOrJefe = ['ADMIN', 'JEFE_TALLER'].includes(user?.rol?.nombre || '');
   const isMecanico = user?.rol?.nombre === 'MECANICO';
 
@@ -45,31 +45,31 @@ export const ReservasPage = () => {
     { key: 'fechaHora', header: 'Fecha y hora', sortable: true, render: (r) => formatDateTime(r.fechaHora) },
     { key: 'cliente', header: 'Cliente', render: (r) => (
       <div>
-        <p className="font-medium">{r.cliente.nombreCompleto}</p>
-        <p className="text-sm text-gray-500">{r.cliente.email}</p>
+        <p className="font-medium text-surface-900 dark:text-white">{r.cliente?.nombreCompleto || 'N/A'}</p>
+        <p className="text-sm text-surface-500 dark:text-surface-400">{r.cliente?.email || ''}</p>
       </div>
     )},
     { key: 'categoriaServicio', header: 'Servicio', render: (r) => r.categoriaServicio || 'General' },
     { key: 'estado', header: 'Estado', render: (r) => (
-      <Badge variant={getReservaEstadoColor(r.estado)}>
+      <Badge variant={getReservaEstadoColor(r.estado) as any} dot>
         {getReservaEstadoLabel(r.estado)}
       </Badge>
     )},
-    { key: 'actions', header: 'Acciones', render: (r, i) => (
-      <div className="flex items-center gap-2">
+    { key: 'actions', header: 'Acciones', align: 'center', render: (r, idx) => (
+      <div className="flex items-center gap-1 justify-center">
         {isAdminOrJefe && (
-          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleEdit(r); }}>
-            Editar
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEdit(r); }} aria-label="Editar">
+            <Edit className="h-4 w-4" />
           </Button>
         )}
         {isAdminOrJefe && (
-          <Button variant="danger" size="sm" onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(r.id); }}>
-            Eliminar
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(r.id); }} aria-label="Eliminar">
+            <Trash2 className="h-4 w-4" />
           </Button>
         )}
         {!isAdminOrJefe && r.estado === 'PENDIENTE' && (
-          <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); handleCancel(r.id); }}>
-            Cancelar
+          <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setShowCancelConfirm(r.id); }} aria-label="Cancelar" className="text-danger-600 hover:bg-danger-50 dark:text-danger-400">
+            <XCircle className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -81,22 +81,25 @@ export const ReservasPage = () => {
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<ReservaFormData>({
     resolver: zodResolver(reservaSchema),
   });
 
-  const fetchReservas = async () => {
+  const fetchReservas = async (termino = search) => {
     setLoading(true);
     try {
       if (isAdminOrJefe || isMecanico) {
-        const response = await reservaService.listar(page - 1, 10);
-        setReservas(response.content);
+        const response = await reservaService.listar(page - 1, 10, termino, estadoFilter);
+        setReservas(response.content as ReservaWithCliente[]);
         setTotalPages(Math.ceil(response.totalElements / 10));
+        setTotalItems(response.totalElements);
       } else {
         const data = await reservaService.misReservas();
-        setReservas(data);
+        setReservas(data as ReservaWithCliente[]);
         setTotalPages(1);
+        setTotalItems(data.length);
       }
     } catch (error) {
       addNotification({ type: 'error', title: 'Error', message: 'No se pudieron cargar las reservas' });
@@ -108,29 +111,32 @@ export const ReservasPage = () => {
   const fetchMecanicos = async () => {
     try {
       const data = await usuarioService.obtenerMecanicos();
-      setMecanicos(data.map(m => ({ id: m.id, nombreCompleto: m.nombreCompleto || '' })));
+      setMecanicos(data.map(m => ({ value: m.id.toString(), label: m.nombreCompleto || '' })));
     } catch (error) {
       console.error('Error fetching mecanicos:', error);
     }
   };
 
   useEffect(() => {
-    fetchReservas();
+    fetchReservas(debouncedSearch);
     if (isAdminOrJefe) fetchMecanicos();
-  }, [page, search, estadoFilter]);
+  }, [page, debouncedSearch, estadoFilter]);
 
   const handleEdit = (reserva: ReservaWithCliente) => {
     setEditingReserva(reserva);
     reset({
       fechaHora: new Date(reserva.fechaHora).toISOString().slice(0, 16),
       categoriaServicio: reserva.categoriaServicio || '',
+      descripcion: reserva.descripcion || '',
     });
     setShowModal(true);
   };
 
   const handleNew = () => {
     setEditingReserva(null);
-    reset({ fechaHora: new Date().toISOString().slice(0, 16) });
+    reset({
+      fechaHora: new Date(Date.now() + 3600000).toISOString().slice(0, 16),
+    });
     setShowModal(true);
   };
 
@@ -155,6 +161,7 @@ export const ReservasPage = () => {
     try {
       await reservaService.cancelar(id);
       addNotification({ type: 'success', title: 'Éxito', message: 'Reserva cancelada' });
+      setShowCancelConfirm(null);
       fetchReservas();
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Error al cancelar';
@@ -175,96 +182,118 @@ export const ReservasPage = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Reservas</h1>
-          <p className="text-gray-600">Gestiona las citas del taller</p>
+          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Reservas</h1>
+          <p className="text-surface-500 dark:text-surface-400 mt-1">Gestiona las citas del taller</p>
         </div>
         {isAdminOrJefe && (
           <Button onClick={handleNew}>
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4" />
             Nueva reserva
           </Button>
         )}
       </div>
 
-      <Card subtitle="Lista de reservas">
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar por cliente, email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
+      <Card subtitle="Listado de citas programadas">
+        <CardContent className="p-0">
+          <div className="p-4 border-b border-surface-100 dark:border-surface-800">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar por cliente, servicio..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-surface-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-surface-700 dark:bg-surface-800 dark:text-white dark:placeholder:text-surface-500"
+                />
+              </div>
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
+                <Select
+                  value={estadoFilter}
+                  onChange={(e) => setEstadoFilter(e.target.value)}
+                  options={[
+                    { value: '', label: 'Todos los estados' },
+                    { value: 'PENDIENTE', label: 'Pendiente' },
+                    { value: 'CONFIRMADA', label: 'Confirmada' },
+                    { value: 'EN_PROCESO', label: 'En proceso' },
+                    { value: 'COMPLETADA', label: 'Completada' },
+                    { value: 'CANCELADA', label: 'Cancelada' },
+                  ]}
+                  placeholder="Filtrar estado"
+                  className="w-full sm:w-48"
+                />
+              </div>
+            </div>
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <select
-              value={estadoFilter}
-              onChange={(e) => setEstadoFilter(e.target.value)}
-              className="pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 appearance-none"
-            >
-              <option value="">Todos los estados</option>
-              <option value="PENDIENTE">Pendiente</option>
-              <option value="CONFIRMADA">Confirmada</option>
-              <option value="EN_PROCESO">En proceso</option>
-              <option value="COMPLETADA">Completada</option>
-              <option value="CANCELADA">Cancelada</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 pointer-events-none" />
-          </div>
-        </div>
 
-        <Table
-          columns={columns}
-          data={reservas}
-          keyExtractor={(r) => r.id.toString()}
-          loading={loading}
-          emptyMessage="No hay reservas registradas"
-        />
-        
-        {totalPages > 1 && (
+          <Table
+            columns={columns}
+            data={reservas}
+            keyExtractor={(r) => r.id.toString()}
+            loading={loading}
+            hoverable
+            striped
+            emptyMessage="No hay reservas registradas"
+            emptyIcon={<Calendar className="w-12 h-12 text-surface-300 dark:text-surface-600" />}
+          />
+
           <Pagination
             currentPage={page}
             totalPages={totalPages}
             onPageChange={setPage}
+            showPerPage
+            perPage={10}
+            totalItems={totalItems}
           />
-        )}
+        </CardContent>
       </Card>
 
       <Modal
         isOpen={showModal}
-        onClose={() => { setShowModal(false); setEditingReserva(null); }}
+        onClose={() => setShowModal(false)}
         title={editingReserva ? 'Editar reserva' : 'Nueva reserva'}
-        size="lg"
+        size="md"
       >
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input
-              label="Fecha y hora"
-              type="datetime-local"
-              error={errors.fechaHora?.message}
-              {...register('fechaHora')}
-              required
-            />
-            <Input
-              label="Categoría de servicio"
-              placeholder="Mantenimiento, Reparación, etc."
-              error={errors.categoriaServicio?.message}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          <Input
+            {...register('fechaHora')}
+            type="datetime-local"
+            label="Fecha y hora *"
+            error={errors.fechaHora?.message}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Select
               {...register('categoriaServicio')}
+              label="Categoría de servicio"
+              options={[
+                { value: 'Mantenimiento', label: 'Mantenimiento' },
+                { value: 'Reparación', label: 'Reparación' },
+                { value: 'Diagnóstico', label: 'Diagnóstico' },
+                { value: 'Inspección', label: 'Inspección' },
+                { value: 'Otro', label: 'Otro' },
+              ]}
+              placeholder="Selecciona una categoría"
+            />
+            <Select
+              {...register('mecanicoId', { valueAsNumber: true })}
+              label="Mecánico asignado"
+              options={mecanicos}
+              placeholder="Sin asignar"
             />
           </div>
+
           <Input
-            label="Descripción"
-            placeholder="Detalles del servicio..."
-            error={errors.descripcion?.message}
             {...register('descripcion')}
+            label="Descripción"
+            placeholder="Detalles de la cita..."
           />
-          <div className="flex justify-end gap-3 pt-4 border-t">
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-surface-100 dark:border-surface-800">
             <Button type="button" variant="secondary" onClick={() => setShowModal(false)}>
               Cancelar
             </Button>
@@ -278,11 +307,21 @@ export const ReservasPage = () => {
       <ConfirmDialog
         isOpen={!!showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(null)}
-        onConfirm={() => showDeleteConfirm && handleDelete(showDeleteConfirm)}
-        title="Eliminar reserva"
-        message="¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer."
-        confirmText="Eliminar"
+        onConfirm={() => handleDelete(showDeleteConfirm!)}
+        title="¿Eliminar reserva?"
+        message="Esta acción eliminará la reserva permanentemente. ¿Deseas continuar?"
         variant="danger"
+        confirmText="Eliminar"
+      />
+
+      <ConfirmDialog
+        isOpen={!!showCancelConfirm}
+        onClose={() => setShowCancelConfirm(null)}
+        onConfirm={() => handleCancel(showCancelConfirm!)}
+        title="¿Cancelar reserva?"
+        message="La reserva se marcará como cancelada. ¿Deseas continuar?"
+        variant="warning"
+        confirmText="Cancelar"
       />
     </div>
   );

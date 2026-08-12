@@ -1,13 +1,25 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="description" content="Voltios y Ruedas - Taller automotriz con reservas en linea, seguimiento y atencion profesional." />
+    <meta name="theme-color" content="#16a34a" />
+    <title>Voltios y Ruedas - Taller Automotriz</title>
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('darkMode');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var isDark = saved !== null ? JSON.parse(saved) : prefersDark;
+          if (isDark) document.documentElement.classList.add('dark');
+        } catch (e) {}
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
