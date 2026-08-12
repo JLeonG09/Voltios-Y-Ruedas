@@ -1,0 +1,15 @@
+# Overlay opcional: expone el frontend (nginx :80) con ngrok usando una URL publica HTTPS.
+# Uso:
+#   docker compose -f compose.yml -f compose.ngrok.yml up -d --build
+#   docker compose -f compose.yml -f compose.ngrok.yml logs -f ngrok   # ver la URL publica
+# Requiere NGROK_AUTHTOKEN en el archivo .env (cuenta gratuita de ngrok).
+services:
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: voltios_ruedas_ngrok
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    command: http --log=stdout http://frontend:80
+    depends_on:
+      - frontend
+    restart: unless-stopped
