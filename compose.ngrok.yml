@@ -9,7 +9,7 @@ services:
     container_name: voltios_ruedas_ngrok
     environment:
       NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
-    command: http --log=stdout http://frontend:80
+    command: http --log=stdout --domain=vocalist-wrongly-pedometer.ngrok-free.dev http://frontend:80
     depends_on:
       - frontend
     restart: unless-stopped
