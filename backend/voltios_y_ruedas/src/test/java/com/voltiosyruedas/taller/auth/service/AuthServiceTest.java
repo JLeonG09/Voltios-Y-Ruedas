@@ -2,11 +2,14 @@ package com.voltiosyruedas.taller.auth.service;
 
 import com.voltiosyruedas.taller.auth.dto.LoginRequest;
 import com.voltiosyruedas.taller.auth.dto.RegisterRequest;
+import com.voltiosyruedas.taller.auth.entity.RefreshToken;
 import com.voltiosyruedas.taller.auth.entity.Rol;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.repository.RefreshTokenRepository;
 import com.voltiosyruedas.taller.auth.repository.RolRepository;
 import com.voltiosyruedas.taller.auth.repository.UsuarioRepository;
 import com.voltiosyruedas.taller.auth.security.JwtUtil;
+import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +22,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +42,9 @@ class AuthServiceTest {
     private RolRepository rolRepository;
 
     @Mock
+    private RefreshTokenRepository refreshTokenRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -44,6 +52,9 @@ class AuthServiceTest {
 
     @Mock
     private Authentication authentication;
+
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private AuthService authService;
@@ -66,6 +77,10 @@ class AuthServiceTest {
             var expirationField = JwtUtil.class.getDeclaredField("expiration");
             expirationField.setAccessible(true);
             expirationField.set(jwtUtil, 86400000L); // 24 hours
+
+            var refreshExpirationField = JwtUtil.class.getDeclaredField("refreshExpiration");
+            refreshExpirationField.setAccessible(true);
+            refreshExpirationField.set(jwtUtil, 604800000L); // 7 days
         } catch (Exception e) {
             throw new RuntimeException("Failed to set up JwtUtil for testing", e);
         }
@@ -232,5 +247,94 @@ class AuthServiceTest {
         String token = authService.login(loginRequest);
         assertThat(token).isNotNull();
         assertThat(token).isNotEmpty();
+    }
+
+    @Test
+    void refrescarToken_valido_deberiaRotarYDevolverParNuevo() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .build();
+
+        String refreshTokenUsado = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        RefreshToken registro = RefreshToken.builder()
+                .id(10L)
+                .usuario(usuario)
+                .token(refreshTokenUsado)
+                .expiracion(LocalDateTime.now().plusDays(7))
+                .revocado(false)
+                .build();
+
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
+        when(refreshTokenRepository.findByToken(refreshTokenUsado)).thenReturn(Optional.of(registro));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var respuesta = authService.refrescarToken(refreshTokenUsado);
+
+        assertThat(respuesta.getToken()).isNotNull().isNotEmpty();
+        assertThat(respuesta.getRefreshToken()).isNotNull().isNotEmpty();
+        assertThat(respuesta.getRefreshToken()).isNotEqualTo(refreshTokenUsado);
+
+        // El token usado queda revocado (rotación)
+        assertThat(registro.getRevocado()).isTrue();
+        verify(refreshTokenRepository, times(1)).save(registro);
+    }
+
+    @Test
+    void refrescarToken_reutilizado_deberiaRevocarFamiliaYRechazar() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .build();
+
+        String refreshToken = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        // El token ya no existe en BD (fue rotado en un uso previo) => reuso
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
+        when(refreshTokenRepository.findByToken(refreshToken)).thenReturn(Optional.empty());
+        when(refreshTokenRepository.findByUsuarioIdAndRevocadoFalse(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> authService.refrescarToken(refreshToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Refresh token inválido o expirado");
+
+        verify(refreshTokenRepository, times(1)).findByUsuarioIdAndRevocadoFalse(1L);
+        verify(refreshTokenRepository, never()).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void refrescarToken_revocado_deberiaRechazar() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .build();
+
+        String refreshToken = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        RefreshToken registroRevocado = RefreshToken.builder()
+                .id(10L)
+                .usuario(usuario)
+                .token(refreshToken)
+                .expiracion(LocalDateTime.now().plusDays(7))
+                .revocado(true)
+                .build();
+
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
+        when(refreshTokenRepository.findByToken(refreshToken)).thenReturn(Optional.of(registroRevocado));
+        when(refreshTokenRepository.findByUsuarioIdAndRevocadoFalse(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> authService.refrescarToken(refreshToken))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Refresh token inválido o expirado");
     }
 }

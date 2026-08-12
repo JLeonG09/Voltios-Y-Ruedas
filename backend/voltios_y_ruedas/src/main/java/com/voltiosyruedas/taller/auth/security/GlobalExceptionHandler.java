@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.auth.security;
 
+import com.voltiosyruedas.taller.common.exception.ApiException;
 import com.voltiosyruedas.taller.common.exception.ErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
@@ -132,6 +133,31 @@ public class GlobalExceptionHandler {
                 .build();
 
         return ResponseEntity.badRequest().body(response);
+    }
+
+    @ExceptionHandler(ApiException.class)
+    public ResponseEntity<ErrorResponse> handleApiException(ApiException ex) {
+        ErrorResponse response = ErrorResponse.builder()
+                .código(ex.getCodigo())
+                .mensaje(ex.getMessage())
+                .detalles(List.of(ex.getMessage()))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(ex.getStatus()).body(response);
+    }
+
+    @ExceptionHandler(ClassCastException.class)
+    public ResponseEntity<ErrorResponse> handleClassCastException(ClassCastException ex) {
+        ex.printStackTrace();
+        ErrorResponse response = ErrorResponse.builder()
+                .código("CLASS_CAST_ERROR")
+                .mensaje("Error de conversión de tipos")
+                .detalles(List.of(ex.getMessage()))
+                .timestamp(LocalDateTime.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
     @ExceptionHandler(RuntimeException.class)

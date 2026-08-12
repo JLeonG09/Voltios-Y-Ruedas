@@ -21,6 +21,9 @@ public class JwtUtil {
     @Value("${jwt.expiration:86400000}")
     private Long expiration;
 
+    @Value("${jwt.refresh.expiration:604800000}")
+    private Long refreshExpiration;
+
     private SecretKey getSigningKey() {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
@@ -52,23 +55,45 @@ public class JwtUtil {
 
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
-        return createToken(claims, userDetails.getUsername());
+        return createToken(claims, userDetails.getUsername(), expiration);
     }
 
     public String generateToken(UserDetails userDetails, String rol) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("rol", rol);
-        return createToken(claims, userDetails.getUsername());
+        return createToken(claims, userDetails.getUsername(), expiration);
     }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+    public String generateRefreshToken(UserDetails userDetails, String rol) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("rol", rol);
+        // jti único para que dos refresh tokens emitidos en el mismo segundo no coincidan
+        return Jwts.builder()
+                .claims(claims)
+                .subject(userDetails.getUsername())
+                .id(java.util.UUID.randomUUID().toString())
+                .issuedAt(new Date(System.currentTimeMillis()))
+                .expiration(new Date(System.currentTimeMillis() + refreshExpiration))
+                .signWith(getSigningKey())
+                .compact();
+    }
+
+    private String createToken(Map<String, Object> claims, String subject, Long expirationMs) {
         return Jwts.builder()
                 .claims(claims)
                 .subject(subject)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + expiration))
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(getSigningKey())
                 .compact();
+    }
+
+    public Boolean isTokenValid(String token) {
+        try {
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {

@@ -12,6 +12,9 @@ public class JwtResponse {
     @Schema(description = "Token JWT firmado", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
     private String token;
 
+    @Schema(description = "Refresh token para renovar el token de acceso (7 días)", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    private String refreshToken;
+
     @Schema(description = "Tipo de token", example = "Bearer", defaultValue = "Bearer")
     @Builder.Default
     private String tipo = "Bearer";

@@ -10,6 +10,7 @@ import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.security.JwtUtil;
 import com.voltiosyruedas.taller.auth.service.AuthService;
 import com.voltiosyruedas.taller.auth.service.UsuarioService;
+import com.voltiosyruedas.taller.common.exception.ApiException;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -94,7 +95,7 @@ class AuthControllerTest {
                 .build();
 
         when(authService.login(any(LoginRequest.class)))
-                .thenThrow(new RuntimeException("Credenciales inválidas"));
+                .thenThrow(ApiException.unauthorized("Credenciales inválidas"));
 
         mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
@@ -185,15 +186,15 @@ class AuthControllerTest {
                 .build();
 
         when(authService.registrar(any(RegisterRequest.class)))
-                .thenThrow(new RuntimeException("El email ya está registrado"));
+                .thenThrow(ApiException.conflict("El email ya está registrado"));
 
         mockMvc.perform(post("/api/auth/register")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.código").value("DATA_INTEGRITY_ERROR"))
-                .andExpect(jsonPath("$.mensaje").value("El recurso ya existe"));
+                .andExpect(jsonPath("$.código").value("CONFLICT"))
+                .andExpect(jsonPath("$.mensaje").value("El email ya está registrado"));
     }
 
     @Test

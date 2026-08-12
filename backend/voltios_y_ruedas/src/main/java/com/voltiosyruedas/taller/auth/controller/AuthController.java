@@ -1,12 +1,12 @@
 package com.voltiosyruedas.taller.auth.controller;
 
-import com.voltiosyruedas.taller.auth.dto.JwtResponse;
-import com.voltiosyruedas.taller.auth.dto.LoginRequest;
-import com.voltiosyruedas.taller.auth.dto.RegisterRequest;
-import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
+import com.voltiosyruedas.taller.auditoria.service.AuditService;
+import com.voltiosyruedas.taller.auth.dto.*;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.security.TokenBlacklistService;
 import com.voltiosyruedas.taller.auth.service.AuthService;
+import com.voltiosyruedas.taller.auth.service.UsuarioService;
+import com.voltiosyruedas.taller.common.exception.ApiException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -27,12 +29,14 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final UsuarioService usuarioService;
     private final TokenBlacklistService tokenBlacklistService;
+    private final AuditService auditService;
 
     @PostMapping("/login")
     @Operation(
         summary = "Iniciar sesión",
-        description = "Autentica un usuario con email y contraseña, retorna un token JWT firmado"
+        description = "Autentica un usuario con email y contraseña, retorna un token JWT firmado y un refresh token"
     )
     @ApiResponses(value = {
         @ApiResponse(
@@ -53,11 +57,13 @@ public class AuthController {
     })
     public ResponseEntity<JwtResponse> login(@Valid @RequestBody LoginRequest request) {
         String token = authService.login(request);
-        Usuario usuario = (Usuario) org.springframework.security.core.context.SecurityContextHolder
-                .getContext().getAuthentication().getPrincipal();
+        Usuario usuario = usuarioService.obtenerPorEmail(request.getEmail());
+        String refreshToken = authService.crearRefreshToken(usuario);
 
         JwtResponse response = JwtResponse.builder()
                 .token(token)
+                .refreshToken(refreshToken)
+                .tipo("Bearer")
                 .id(usuario.getId())
                 .nombre(usuario.getNombre())
                 .apellido(usuario.getApellido())
@@ -66,6 +72,27 @@ public class AuthController {
                 .build();
 
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/refresh")
+    @Operation(
+        summary = "Renovar token de acceso",
+        description = "Intercambia un refresh token válido por un nuevo par de tokens (rotación)"
+    )
+    @ApiResponses(value = {
+        @ApiResponse(
+            responseCode = "200",
+            description = "Tokens renovados",
+            content = @Content(schema = @Schema(implementation = JwtResponse.class))
+        ),
+        @ApiResponse(
+            responseCode = "400",
+            description = "Refresh token inválido o expirado",
+            content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
+        )
+    })
+    public ResponseEntity<JwtResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refrescarToken(request.getRefreshToken()));
     }
 
     @PostMapping("/logout")
@@ -85,15 +112,19 @@ public class AuthController {
             content = @Content(schema = @Schema(implementation = com.voltiosyruedas.taller.common.exception.ErrorResponse.class))
         )
     })
-    public ResponseEntity<Void> logout(Authentication authentication) {
-        String authHeader = org.springframework.security.core.context.SecurityContextHolder
-                .getContext().getAuthentication().getCredentials().toString();
-        
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            String token = authHeader.substring(7);
-            tokenBlacklistService.blacklistToken(token, 86400000);
+    public ResponseEntity<Void> logout(
+            @RequestHeader(value = "Authorization", required = false) String authorizationHeader,
+            @RequestBody(required = false) RefreshTokenRequest body) {
+        if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+            String token = authorizationHeader.substring(7).trim();
+            if (!token.isEmpty()) {
+                tokenBlacklistService.blacklistToken(token, 86400000);
+            }
         }
-        
+        if (body != null) {
+            authService.cerrarSesion(body.getRefreshToken());
+        }
+        auditService.registrar("LOGOUT", "USUARIO", null, "Cierre de sesión");
         return ResponseEntity.ok().build();
     }
 
@@ -121,25 +152,75 @@ public class AuthController {
     })
     public ResponseEntity<UsuarioResponse> register(@Valid @RequestBody RegisterRequest request) {
         Usuario usuario = authService.registrar(request);
-        
-        UsuarioResponse response = UsuarioResponse.builder()
-                .id(usuario.getId())
-                .nombre(usuario.getNombre())
-                .apellido(usuario.getApellido())
-                .email(usuario.getEmail())
-                .telefono(usuario.getTelefono())
-                .direccion(usuario.getDireccion())
-                .activo(usuario.getActivo())
-                .fechaCreacion(usuario.getFechaCreacion())
-                .fechaActualizacion(usuario.getFechaActualizacion())
-                .rol(UsuarioResponse.RolResponse.builder()
-                        .id(usuario.getRol().getId())
-                        .nombre(usuario.getRol().getNombre())
-                        .descripcion(usuario.getRol().getDescripcion())
-                        .build())
-                .build();
+        return ResponseEntity.ok(mapUsuario(usuario));
+    }
 
-        return ResponseEntity.ok(response);
+    @PostMapping("/recuperar-password")
+    @Operation(
+        summary = "Solicitar recuperación de contraseña",
+        description = "Genera un token de recuperación para el email indicado (devuelto en la respuesta en desarrollo)"
+    )
+    public ResponseEntity<?> recuperarPassword(@Valid @RequestBody RecuperarPasswordRequest request) {
+        String token = authService.iniciarRecuperacion(request.getEmail());
+        if (token == null) {
+            return ResponseEntity.ok(Map.of(
+                    "mensaje", "Si el email está registrado, recibirás las instrucciones para recuperar tu contraseña"
+            ));
+        }
+        // Solo en desarrollo se devuelve el token; en producción debe enviarse por correo.
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Se generó un token de recuperación",
+                "token", token
+        ));
+    }
+
+    @PostMapping("/reestablecer-password")
+    @Operation(
+        summary = "Restablecer contraseña",
+        description = "Restablece la contraseña usando el token de recuperación"
+    )
+    public ResponseEntity<Map<String, String>> reestablecerPassword(@Valid @RequestBody PasswordResetRequest request) {
+        authService.restablecerPassword(request.getToken(), request.getNuevaPassword());
+        return ResponseEntity.ok(Map.of("mensaje", "Contraseña restablecida correctamente"));
+    }
+
+    @PutMapping("/me")
+    @Operation(
+        summary = "Actualizar perfil propio",
+        description = "Actualiza nombre, apellido, teléfono y dirección del usuario autenticado",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<UsuarioResponse> actualizarPerfil(
+            Authentication authentication,
+            @Valid @RequestBody ActualizarPerfilRequest request) {
+        Usuario usuario = usuarioAutenticado(authentication);
+        Usuario actualizado = usuarioService.actualizarPerfil(usuario.getId(), request);
+        return ResponseEntity.ok(usuarioService.toResponse(actualizado));
+    }
+
+    @GetMapping("/preferencias")
+    @Operation(
+        summary = "Obtener preferencias del usuario",
+        description = "Retorna las preferencias de configuración del usuario autenticado",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<PreferenciasRequest> obtenerPreferencias(Authentication authentication) {
+        Usuario usuario = usuarioAutenticado(authentication);
+        return ResponseEntity.ok(usuarioService.obtenerPreferencias(usuario.getId()));
+    }
+
+    @PutMapping("/preferencias")
+    @Operation(
+        summary = "Guardar preferencias del usuario",
+        description = "Persiste las preferencias de configuración del usuario autenticado",
+        security = @SecurityRequirement(name = "bearerAuth")
+    )
+    public ResponseEntity<PreferenciasRequest> guardarPreferencias(
+            Authentication authentication,
+            @RequestBody PreferenciasRequest preferencias) {
+        Usuario usuario = usuarioAutenticado(authentication);
+        usuarioService.guardarPreferencias(usuario.getId(), preferencias);
+        return ResponseEntity.ok(preferencias);
     }
 
     @GetMapping("/me")
@@ -161,9 +242,29 @@ public class AuthController {
         )
     })
     public ResponseEntity<UsuarioResponse> getCurrentUser(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
-        
-        UsuarioResponse response = UsuarioResponse.builder()
+        Usuario usuario = usuarioAutenticado(authentication);
+        return ResponseEntity.ok(mapUsuario(usuario));
+    }
+
+    /**
+     * Resuelve el usuario autenticado de forma robusta: si el principal es la
+     * entidad {@link Usuario} (filtro JWT) se usa directamente; en caso contrario
+     * (p. ej. @WithMockUser o credenciales de formulario) se resuelve por email.
+     */
+    private Usuario usuarioAutenticado(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            throw ApiException.unauthorized("No autenticado");
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof Usuario usuario) {
+            return usuario;
+        }
+        return usuarioService.obtenerPorEmail(authentication.getName());
+    }
+
+    private UsuarioResponse mapUsuario(Usuario usuario) {
+        return UsuarioResponse.builder()
                 .id(usuario.getId())
                 .nombre(usuario.getNombre())
                 .apellido(usuario.getApellido())
@@ -173,13 +274,11 @@ public class AuthController {
                 .activo(usuario.getActivo())
                 .fechaCreacion(usuario.getFechaCreacion())
                 .fechaActualizacion(usuario.getFechaActualizacion())
-                .rol(UsuarioResponse.RolResponse.builder()
+                .rol(usuario.getRol() != null ? UsuarioResponse.RolResponse.builder()
                         .id(usuario.getRol().getId())
                         .nombre(usuario.getRol().getNombre())
                         .descripcion(usuario.getRol().getDescripcion())
-                        .build())
+                        .build() : null)
                 .build();
-
-        return ResponseEntity.ok(response);
     }
 }
