@@ -1,11 +1,14 @@
 package com.voltiosyruedas.taller.reservas.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Rol;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
+import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.reservas.service.ReservaService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -48,6 +51,75 @@ class ReservaControllerTest {
     private Usuario cliente;
     private Reserva reserva;
     private ReservaRequest request;
+
+    @BeforeEach
+    void setUp() {
+        Rol rolCliente = new Rol(4L, "CLIENTE", "Cliente del taller");
+
+        cliente = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .activo(true)
+                .build();
+
+        request = ReservaRequest.builder()
+                .fechaHora(LocalDateTime.now().plusDays(1))
+                .descripcion("Cambio de aceite")
+                .categoriaServicio("Mantenimiento")
+                .build();
+
+        reserva = Reserva.builder()
+                .id(1L)
+                .cliente(cliente)
+                .fechaHora(request.getFechaHora())
+                .descripcion(request.getDescripcion())
+                .categoriaServicio(request.getCategoriaServicio())
+                .estado("PENDIENTE")
+                .build();
+
+        mockToResponse();
+    }
+
+    /**
+     * El controlador devuelve ReservaResponse (mapeado por reservaService.toResponse).
+     * Con el servicio mockeado, hay que simular ese mapeo para que el JSON de salida
+     * sea coherente con la entidad stubeada.
+     */
+    private void mockToResponse() {
+        when(reservaService.toResponse(any(Reserva.class))).thenAnswer(invocation -> {
+            Reserva r = invocation.getArgument(0);
+            Usuario u = r.getCliente();
+            return ReservaResponse.builder()
+                    .id(r.getId())
+                    .cliente(UsuarioResponse.builder()
+                            .id(u != null ? u.getId() : null)
+                            .nombre(u != null ? u.getNombre() : null)
+                            .apellido(u != null ? u.getApellido() : null)
+                            .email(u != null ? u.getEmail() : null)
+                            .telefono(u != null ? u.getTelefono() : null)
+                            .direccion(u != null ? u.getDireccion() : null)
+                            .activo(u != null ? u.getActivo() : null)
+                            .fechaCreacion(u != null ? u.getFechaCreacion() : null)
+                            .fechaActualizacion(u != null ? u.getFechaActualizacion() : null)
+                            .rol(u != null && u.getRol() != null ? UsuarioResponse.RolResponse.builder()
+                                    .id(u.getRol().getId())
+                                    .nombre(u.getRol().getNombre())
+                                    .descripcion(u.getRol().getDescripcion())
+                                    .build() : null)
+                            .build())
+                    .fechaHora(r.getFechaHora())
+                    .descripcion(r.getDescripcion())
+                    .categoriaServicio(r.getCategoriaServicio())
+                    .estado(r.getEstado())
+                    .fechaCreacion(r.getFechaCreacion())
+                    .fechaActualizacion(r.getFechaActualizacion())
+                    .build();
+        });
+    }
 
     @Test
     @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
@@ -114,7 +186,7 @@ class ReservaControllerTest {
                 .estado("PENDIENTE")
                 .build();
 
-        when(reservaService.crear(any(), any())).thenReturn(reservaCreada);
+        when(reservaService.crear(any(Usuario.class), any(ReservaRequest.class))).thenReturn(reservaCreada);
 
         mockMvc.perform(post("/api/reservas")
                         .with(csrf())

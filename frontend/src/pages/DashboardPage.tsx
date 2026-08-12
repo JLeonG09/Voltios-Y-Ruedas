@@ -109,15 +109,18 @@ export const DashboardPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const esStaff = isAdminOrJefe || isMecanico;
         const [reservasRes, ordenesRes, inventario, usuariosRes] =
           await Promise.all([
             isCliente
               ? reservaService.misReservas()
-              : await reservaService.listar(0, 100),
+              : reservaService.listar(0, 100),
             isCliente || isMecanico
               ? ordenService.misOrdenes()
               : ordenService.listar(0, 100),
-            inventarioService.listarStockBajo(),
+            esStaff
+              ? inventarioService.listarStockBajo()
+              : Promise.resolve([]),
             isAdminOrJefe
               ? usuarioService.listar(0, 100)
               : Promise.resolve({ content: [], totalElements: 0 }),

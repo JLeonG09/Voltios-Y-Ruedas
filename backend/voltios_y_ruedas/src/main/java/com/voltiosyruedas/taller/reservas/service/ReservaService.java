@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.reservas.service;
 
+import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
@@ -81,5 +82,43 @@ public class ReservaService {
     @Transactional
     public void eliminar(Long id) {
         reservaRepository.deleteById(id);
+    }
+
+    /**
+     * Mapea la entidad {@link Reserva} a su DTO de respuesta. Evita serializar
+     * directamente la entidad, cuyo {@code cliente} es una proxy lazy de Hibernate
+     * que rompe la serializacion JSON (ByteBuddyInterceptor).
+     */
+    public ReservaResponse toResponse(Reserva reserva) {
+        return ReservaResponse.builder()
+                .id(reserva.getId())
+                .cliente(usuarioToResponse(reserva.getCliente()))
+                .fechaHora(reserva.getFechaHora())
+                .descripcion(reserva.getDescripcion())
+                .categoriaServicio(reserva.getCategoriaServicio())
+                .estado(reserva.getEstado())
+                .fechaCreacion(reserva.getFechaCreacion())
+                .fechaActualizacion(reserva.getFechaActualizacion())
+                .build();
+    }
+
+    private UsuarioResponse usuarioToResponse(Usuario usuario) {
+        if (usuario == null) return null;
+        return UsuarioResponse.builder()
+                .id(usuario.getId())
+                .nombre(usuario.getNombre())
+                .apellido(usuario.getApellido())
+                .email(usuario.getEmail())
+                .telefono(usuario.getTelefono())
+                .direccion(usuario.getDireccion())
+                .activo(usuario.getActivo())
+                .fechaCreacion(usuario.getFechaCreacion())
+                .fechaActualizacion(usuario.getFechaActualizacion())
+                .rol(usuario.getRol() != null ? UsuarioResponse.RolResponse.builder()
+                        .id(usuario.getRol().getId())
+                        .nombre(usuario.getRol().getNombre())
+                        .descripcion(usuario.getRol().getDescripcion())
+                        .build() : null)
+                .build();
     }
 }

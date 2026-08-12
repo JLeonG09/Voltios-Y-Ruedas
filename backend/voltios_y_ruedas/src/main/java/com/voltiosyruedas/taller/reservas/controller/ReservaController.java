@@ -5,6 +5,7 @@ import com.voltiosyruedas.taller.auth.entity.Usuario;
 import org.springframework.security.access.AccessDeniedException;
 import com.voltiosyruedas.taller.notificaciones.service.NotificacionService;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
+import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.reservas.service.ReservaService;
 import jakarta.validation.Valid;
@@ -32,34 +33,42 @@ public class ReservaController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Page<Reserva>> listar(
+    public ResponseEntity<Page<ReservaResponse>> listar(
             @RequestParam(required = false) String search,
             @RequestParam(required = false) String estado,
             Pageable pageable) {
-        return ResponseEntity.ok(reservaService.listar(pageable, search, estado));
+        Page<ReservaResponse> respuesta = reservaService.listar(pageable, search, estado)
+                .map(reservaService::toResponse);
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/mis-reservas")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<List<Reserva>> misReservas(Authentication authentication) {
+    public ResponseEntity<List<ReservaResponse>> misReservas(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(reservaService.listarPorCliente(usuario));
+        List<ReservaResponse> respuesta = reservaService.listarPorCliente(usuario).stream()
+                .map(reservaService::toResponse)
+                .toList();
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/fecha")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<List<Reserva>> listarPorFecha(
+    public ResponseEntity<List<ReservaResponse>> listarPorFecha(
             @RequestParam LocalDateTime inicio,
             @RequestParam LocalDateTime fin) {
-        return ResponseEntity.ok(reservaService.listarPorFecha(inicio, fin));
+        List<ReservaResponse> respuesta = reservaService.listarPorFecha(inicio, fin).stream()
+                .map(reservaService::toResponse)
+                .toList();
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO', 'CLIENTE')")
-    public ResponseEntity<Reserva> obtenerPorId(@PathVariable Long id, Authentication authentication) {
+    public ResponseEntity<ReservaResponse> obtenerPorId(@PathVariable Long id, Authentication authentication) {
         Reserva reserva = reservaService.obtenerPorId(id);
         validarAcceso(authentication, reserva);
-        return ResponseEntity.ok(reserva);
+        return ResponseEntity.ok(reservaService.toResponse(reserva));
     }
 
     /**
@@ -67,14 +76,14 @@ public class ReservaController {
      */
     @PostMapping
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Reserva> crear(Authentication authentication, @Valid @RequestBody ReservaRequest request) {
+    public ResponseEntity<ReservaResponse> crear(Authentication authentication, @Valid @RequestBody ReservaRequest request) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
         Reserva creada = reservaService.crear(usuario, request);
         notificacionService.notificarAStaff("Nueva reserva",
                 usuario.getNombreCompleto() + " ha solicitado una cita", "reserva");
         auditService.registrar("CREAR_RESERVA", "RESERVA", creada.getId(),
                 "Nueva reserva creada por " + usuario.getEmail());
-        return ResponseEntity.ok(creada);
+        return ResponseEntity.ok(reservaService.toResponse(creada));
     }
 
     /**
@@ -82,20 +91,20 @@ public class ReservaController {
      */
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Reserva> actualizar(@PathVariable Long id,
+    public ResponseEntity<ReservaResponse> actualizar(@PathVariable Long id,
             Authentication authentication, @Valid @RequestBody ReservaRequest request) {
         validarAccesoEdicion(authentication, id);
         Reserva actualizada = reservaService.actualizar(id, request);
         auditService.registrar("ACTUALIZAR_RESERVA", "RESERVA", id, "Reserva modificada");
-        return ResponseEntity.ok(actualizada);
+        return ResponseEntity.ok(reservaService.toResponse(actualizada));
     }
 
     @PutMapping("/{id}/estado")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Reserva> cambiarEstado(@PathVariable Long id, @RequestParam String estado) {
+    public ResponseEntity<ReservaResponse> cambiarEstado(@PathVariable Long id, @RequestParam String estado) {
         Reserva actualizada = reservaService.cambiarEstado(id, estado);
         auditService.registrar("CAMBIO_ESTADO_RESERVA", "RESERVA", id, "Estado cambiado a " + estado);
-        return ResponseEntity.ok(actualizada);
+        return ResponseEntity.ok(reservaService.toResponse(actualizada));
     }
 
     /**
