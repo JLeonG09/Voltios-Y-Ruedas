@@ -125,7 +125,7 @@ CREATE INDEX idx_ordenes_trabajo_inventario_orden ON ordenes_trabajo_inventario(
 CREATE INDEX idx_ordenes_trabajo_inventario_inventario ON ordenes_trabajo_inventario(inventario_id);
 
 -- Datos iniciales para roles
-INSERT INTO roles (nombre, descripcion) VALUES 
+INSERT INTO roles (nombre, descripcion) VALUES
 ('ADMIN', 'Administrador del sistema con acceso completo'),
 ('JEFE_TALLER', 'Jefe de taller con permisos de gestión de órdenes y mecánicos'),
 ('MECANICO', 'Mecánico que ejecuta las órdenes de trabajo'),

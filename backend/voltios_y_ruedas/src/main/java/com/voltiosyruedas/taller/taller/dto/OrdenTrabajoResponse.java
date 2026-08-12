@@ -22,13 +22,18 @@ public class OrdenTrabajoResponse {
     private String diagnostico;
     private String solucionAplicada;
     private String estado;
+    private String estadoLabel;
     private LocalDateTime fechaIngreso;
     private LocalDateTime fechaEstimadaEntrega;
     private LocalDateTime fechaEntregaReal;
     private BigDecimal costoManoObra;
     private BigDecimal costoRepuestos;
     private BigDecimal costoTotal;
+    private BigDecimal montoPagado;
+    private BigDecimal saldoPendiente;
+    private String estadoFacturacion;
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaActualizacion;
     private List<OrdenTrabajoInventarioResponse> repuestosUtilizados;
+    private List<BitacoraResponse> bitacora;
 }

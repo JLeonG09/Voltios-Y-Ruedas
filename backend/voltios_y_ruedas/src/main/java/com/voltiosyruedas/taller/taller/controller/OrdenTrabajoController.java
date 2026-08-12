@@ -1,10 +1,15 @@
 package com.voltiosyruedas.taller.taller.controller;
 
+import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
-import com.voltiosyruedas.taller.taller.dto.BitacoraResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
+import com.voltiosyruedas.taller.notificaciones.service.NotificacionService;
 import com.voltiosyruedas.taller.taller.dto.OrdenTrabajoRequest;
 import com.voltiosyruedas.taller.taller.dto.OrdenTrabajoResponse;
 import com.voltiosyruedas.taller.taller.dto.RepuestoOrdenRequest;
+import com.voltiosyruedas.taller.taller.entity.Bitacora;
 import com.voltiosyruedas.taller.taller.entity.OrdenTrabajo;
 import com.voltiosyruedas.taller.taller.service.OrdenTrabajoService;
 import jakarta.validation.Valid;
@@ -12,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,95 +28,219 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrdenTrabajoController {
 
-    private final OrdenTrabajoService ordenTrabajoService;
+    private static final Logger logger = LoggerFactory.getLogger(OrdenTrabajoController.class);
 
+    private final OrdenTrabajoService ordenTrabajoService;
+    private final NotificacionService notificacionService;
+    private final AuditService auditService;
+
+    /**
+     * Listado completo: solo staff.
+     */
     @GetMapping
-    public ResponseEntity<Page<OrdenTrabajo>> listar(Pageable pageable) {
-        return ResponseEntity.ok(ordenTrabajoService.listar(pageable));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<Page<OrdenTrabajoResponse>> listar(Pageable pageable) {
+        Page<OrdenTrabajoResponse> response = ordenTrabajoService.listar(pageable)
+                .map(o -> ordenTrabajoService.mapearRespuesta(o, false));
+        return ResponseEntity.ok(response);
     }
 
+    /**
+     * Mis ordenes (cliente autenticado): ve sus propias ordenes.
+     */
     @GetMapping("/mis-ordenes")
-    public ResponseEntity<List<OrdenTrabajo>> misOrdenes(Authentication authentication) {
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<List<OrdenTrabajoResponse>> misOrdenes(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(ordenTrabajoService.listarPorCliente(usuario));
+        return ResponseEntity.ok(
+                ordenTrabajoService.listarPorCliente(usuario).stream()
+                        .map(o -> ordenTrabajoService.mapearRespuesta(o, false))
+                        .toList()
+        );
+    }
+
+    /**
+     * Mi historial completo (cliente autenticado): incluye bitacora y facturacion.
+     */
+    @GetMapping("/mi-historial")
+    @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<List<OrdenTrabajoResponse>> miHistorial(Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        return ResponseEntity.ok(
+                ordenTrabajoService.listarPorCliente(usuario).stream()
+                        .map(o -> ordenTrabajoService.mapearRespuesta(o, true))
+                        .toList()
+        );
     }
 
     @GetMapping("/mecanico/{mecanicoId}")
-    public ResponseEntity<List<OrdenTrabajo>> ordenesPorMecanico(@PathVariable Long mecanicoId) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<List<OrdenTrabajoResponse>> ordenesPorMecanico(@PathVariable Long mecanicoId) {
         Usuario mecanico = new Usuario();
         mecanico.setId(mecanicoId);
-        return ResponseEntity.ok(ordenTrabajoService.listarPorMecanico(mecanico));
+        return ResponseEntity.ok(
+                ordenTrabajoService.listarPorMecanico(mecanico).stream()
+                        .map(o -> ordenTrabajoService.mapearRespuesta(o, false))
+                        .toList()
+        );
     }
 
     @GetMapping("/estado/{estado}")
-    public ResponseEntity<List<OrdenTrabajo>> ordenesPorEstado(@PathVariable String estado) {
-        return ResponseEntity.ok(ordenTrabajoService.listarPorEstado(estado));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<List<OrdenTrabajoResponse>> ordenesPorEstado(@PathVariable String estado) {
+        return ResponseEntity.ok(
+                ordenTrabajoService.listarPorEstado(estado).stream()
+                        .map(o -> ordenTrabajoService.mapearRespuesta(o, false))
+                        .toList()
+        );
     }
 
+    /**
+     * Detalle de una orden. Cliente solo si es dueno.
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<OrdenTrabajo> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(ordenTrabajoService.obtenerPorId(id));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO', 'CLIENTE')")
+    public ResponseEntity<OrdenTrabajoResponse> obtenerPorId(@PathVariable Long id, Authentication authentication) {
+        OrdenTrabajo orden = ordenTrabajoService.obtenerPorId(id);
+        validarAcceso(authentication, orden);
+        return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
     }
 
     @GetMapping("/numero/{numeroOrden}")
-    public ResponseEntity<OrdenTrabajo> obtenerPorNumeroOrden(@PathVariable String numeroOrden) {
-        return ResponseEntity.ok(ordenTrabajoService.obtenerPorNumeroOrden(numeroOrden));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO', 'CLIENTE')")
+    public ResponseEntity<OrdenTrabajoResponse> obtenerPorNumeroOrden(@PathVariable String numeroOrden,
+                                                                       Authentication authentication) {
+        OrdenTrabajo orden = ordenTrabajoService.obtenerPorNumeroOrden(numeroOrden);
+        validarAcceso(authentication, orden);
+        return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
     }
 
+    /**
+     * Crear orden: solo staff.
+     */
     @PostMapping
-    public ResponseEntity<OrdenTrabajo> crear(@Valid @RequestBody OrdenTrabajoRequest request) {
-        return ResponseEntity.ok(ordenTrabajoService.crear(request));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<OrdenTrabajoResponse> crear(@Valid @RequestBody OrdenTrabajoRequest request,
+                                                      Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        OrdenTrabajo orden = ordenTrabajoService.crear(usuario, request);
+        notificarClienteSeguro(orden, "Orden de trabajo creada",
+                "Su orden " + orden.getNumeroOrden() + " ha sido registrada", "orden");
+        auditService.registrar("CREAR_ORDEN", "ORDEN_TRABAJO", orden.getId(),
+                "Creada la orden " + orden.getNumeroOrden() + " por " + usuario.getEmail());
+        return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
     }
 
+    /**
+     * Actualizar orden: solo staff.
+     */
     @PutMapping("/{id}")
-    public ResponseEntity<OrdenTrabajo> actualizar(@PathVariable Long id, @Valid @RequestBody OrdenTrabajoRequest request) {
-        return ResponseEntity.ok(ordenTrabajoService.actualizar(id, request));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<OrdenTrabajoResponse> actualizar(@PathVariable Long id,
+                                                           @Valid @RequestBody OrdenTrabajoRequest request,
+                                                           Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        OrdenTrabajo orden = ordenTrabajoService.actualizar(usuario, id, request);
+        return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
     }
 
+    /**
+     * Cambiar estado: solo staff.
+     */
     @PutMapping("/{id}/estado")
-    public ResponseEntity<OrdenTrabajo> cambiarEstado(@PathVariable Long id, @RequestParam String estado) {
-        return ResponseEntity.ok(ordenTrabajoService.cambiarEstado(id, estado));
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<OrdenTrabajoResponse> cambiarEstado(@PathVariable Long id,
+                                                              @RequestParam String estado,
+                                                              Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        OrdenTrabajo orden = ordenTrabajoService.cambiarEstado(usuario, id, estado);
+        notificarClienteSeguro(orden, "Estado de orden actualizado",
+                "Su orden " + orden.getNumeroOrden() + " cambió a " + estado, "orden");
+        auditService.registrar("CAMBIO_ESTADO_ORDEN", "ORDEN_TRABAJO", id,
+                "Estado cambiado a " + estado + " por " + usuario.getEmail());
+        return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
+    }
+
+    /**
+     * Eliminar orden: solo ADMIN.
+     */
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id, Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        ordenTrabajoService.eliminar(usuario, id);
+        auditService.registrar("ELIMINAR_ORDEN", "ORDEN_TRABAJO", id,
+                "Orden eliminada por " + usuario.getEmail());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/repuestos")
-    public ResponseEntity<Void> agregarRepuesto(@PathVariable Long id, @Valid @RequestBody RepuestoOrdenRequest request) {
-        ordenTrabajoService.agregarRepuesto(id, request);
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<Void> agregarRepuesto(@PathVariable Long id,
+                                                 @Valid @RequestBody RepuestoOrdenRequest request,
+                                                 Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        ordenTrabajoService.agregarRepuesto(usuario, id, request);
+        auditService.registrar("AGREGAR_REPUESTO", "ORDEN_TRABAJO", id,
+                "Repuesto agregado por " + usuario.getEmail());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{id}/repuestos/{inventarioId}")
-    public ResponseEntity<Void> quitarRepuesto(@PathVariable Long id, @PathVariable Long inventarioId) {
-        ordenTrabajoService.quitarRepuesto(id, inventarioId);
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
+    public ResponseEntity<Void> quitarRepuesto(@PathVariable Long id,
+                                                @PathVariable Long inventarioId,
+                                                Authentication authentication) {
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        ordenTrabajoService.quitarRepuesto(usuario, id, inventarioId);
+        auditService.registrar("QUITAR_REPUESTO", "ORDEN_TRABAJO", id,
+                "Repuesto retirado por " + usuario.getEmail());
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/bitacora")
-    public ResponseEntity<List<BitacoraResponse>> obtenerBitacora(@PathVariable Long id) {
-        // Map entities to response DTOs
-        return ResponseEntity.ok(ordenTrabajoService.obtenerBitacora(id).stream()
-                .map(this::mapToResponse)
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO', 'CLIENTE')")
+    public ResponseEntity<List<com.voltiosyruedas.taller.taller.dto.BitacoraResponse>> obtenerBitacora(
+            @PathVariable Long id, Authentication authentication) {
+        OrdenTrabajo orden = ordenTrabajoService.obtenerPorId(id);
+        validarAcceso(authentication, orden);
+        List<Bitacora> bitacoras = ordenTrabajoService.obtenerBitacora(id);
+        return ResponseEntity.ok(bitacoras.stream().map(ordenTrabajoService::mapBitacora).toList());
+    }
+
+    /**
+     * Historial completo de todas las ordenes (staff, para facturacion y reportes).
+     */
+    @GetMapping("/historial")
+    @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
+    public ResponseEntity<List<OrdenTrabajoResponse>> historial(Pageable pageable) {
+        Page<OrdenTrabajo> page = ordenTrabajoService.listar(pageable);
+        return ResponseEntity.ok(page.stream()
+                .map(o -> ordenTrabajoService.mapearRespuesta(o, true))
                 .toList());
     }
 
-    private BitacoraResponse mapToResponse(com.voltiosyruedas.taller.taller.entity.Bitacora bitacora) {
-        return BitacoraResponse.builder()
-                .id(bitacora.getId())
-                .ordenTrabajoId(bitacora.getOrdenTrabajo().getId())
-                .usuario(com.voltiosyruedas.taller.auth.dto.UsuarioResponse.builder()
-                        .id(bitacora.getUsuario().getId())
-                        .nombre(bitacora.getUsuario().getNombre())
-                        .apellido(bitacora.getUsuario().getApellido())
-                        .email(bitacora.getUsuario().getEmail())
-                        .rol(com.voltiosyruedas.taller.auth.dto.UsuarioResponse.RolResponse.builder()
-                                .id(bitacora.getUsuario().getRol().getId())
-                                .nombre(bitacora.getUsuario().getRol().getNombre())
-                                .build())
-                        .build())
-                .accion(bitacora.getAccion())
-                .descripcion(bitacora.getDescripcion())
-                .estadoAnterior(bitacora.getEstadoAnterior())
-                .estadoNuevo(bitacora.getEstadoNuevo())
-                .fecha(bitacora.getFecha())
-                .build();
+    private void validarAcceso(Authentication authentication, OrdenTrabajo orden) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Usuario)) {
+            return;
+        }
+        Usuario usuario = (Usuario) authentication.getPrincipal();
+        String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
+        boolean esStaff = List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(rol);
+        boolean esDueno = orden.getCliente() != null && orden.getCliente().getId().equals(usuario.getId());
+        if (!esStaff && !esDueno) {
+            throw new AccessDeniedException("No tiene permisos sobre esta orden");
+        }
+    }
+
+    private void notificarClienteSeguro(OrdenTrabajo orden, String titulo, String mensaje, String tipo) {
+        try {
+            if (orden != null && orden.getCliente() != null && orden.getCliente().getId() != null) {
+                notificacionService.crear(orden.getCliente().getId(), titulo, mensaje, tipo);
+            }
+        } catch (Exception e) {
+            logger.warn("No se pudo notificar al cliente de la orden {}: {}", 
+                    orden != null ? orden.getNumeroOrden() : "?", e.getMessage());
+        }
     }
 }

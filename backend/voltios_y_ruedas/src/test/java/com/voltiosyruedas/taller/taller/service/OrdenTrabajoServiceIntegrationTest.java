@@ -146,7 +146,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .costoRepuestos(BigDecimal.ZERO)
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
         assertThat(orden.getId()).isNotNull();
         assertThat(orden.getNumeroOrden()).isEqualTo("OT-001");
@@ -166,9 +166,9 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        ordenTrabajoService.crear(request);
+        ordenTrabajoService.crear(jefeTaller, request);
 
-        assertThatThrownBy(() -> ordenTrabajoService.crear(request))
+        assertThatThrownBy(() -> ordenTrabajoService.crear(jefeTaller, request))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Ya existe una orden con ese número");
     }
@@ -187,8 +187,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Freno chirria")
                 .build();
 
-        ordenTrabajoService.crear(request1);
-        ordenTrabajoService.crear(request2);
+        ordenTrabajoService.crear(jefeTaller, request1);
+        ordenTrabajoService.crear(jefeTaller, request2);
 
         Pageable pageable = PageRequest.of(0, 10);
         var page = ordenTrabajoService.listar(pageable);
@@ -221,8 +221,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Freno chirria")
                 .build();
 
-        ordenTrabajoService.crear(request1);
-        ordenTrabajoService.crear(request2);
+        ordenTrabajoService.crear(jefeTaller, request1);
+        ordenTrabajoService.crear(jefeTaller, request2);
 
         List<OrdenTrabajo> ordenes = ordenTrabajoService.listarPorCliente(cliente);
 
@@ -256,8 +256,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Freno chirria")
                 .build();
 
-        ordenTrabajoService.crear(request1);
-        ordenTrabajoService.crear(request2);
+        ordenTrabajoService.crear(jefeTaller, request1);
+        ordenTrabajoService.crear(jefeTaller, request2);
 
         List<OrdenTrabajo> ordenes = ordenTrabajoService.listarPorMecanico(mecanico);
 
@@ -281,8 +281,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .estado("TRABAJANDO")
                 .build();
 
-        ordenTrabajoService.crear(request1);
-        ordenTrabajoService.crear(request2);
+        ordenTrabajoService.crear(jefeTaller, request1);
+        ordenTrabajoService.crear(jefeTaller, request2);
 
         List<OrdenTrabajo> ordenes = ordenTrabajoService.listarPorEstado("RECIEN_INGRESADO");
 
@@ -299,9 +299,9 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
-        OrdenTrabajo actualizada = ordenTrabajoService.cambiarEstado(orden.getId(), "TRABAJANDO");
+        OrdenTrabajo actualizada = ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "TRABAJANDO");
 
         assertThat(actualizada.getEstado()).isEqualTo("TRABAJANDO");
     }
@@ -315,9 +315,9 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
-        ordenTrabajoService.cambiarEstado(orden.getId(), "TRABAJANDO");
+        ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "TRABAJANDO");
 
         List<Bitacora> bitacoras = ordenTrabajoService.obtenerBitacora(orden.getId());
 
@@ -336,10 +336,10 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
-        ordenTrabajoService.cambiarEstado(orden.getId(), "TRABAJANDO");
-        OrdenTrabajo entregada = ordenTrabajoService.cambiarEstado(orden.getId(), "ENTREGADO");
+        ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "TRABAJANDO");
+        OrdenTrabajo entregada = ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "ENTREGADO");
 
         assertThat(entregada.getEstado()).isEqualTo("ENTREGADO");
         assertThat(entregada.getFechaEntregaReal()).isNotNull();
@@ -354,10 +354,10 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
-        ordenTrabajoService.cambiarEstado(orden.getId(), "ENTREGADO");
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
+        ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "ENTREGADO");
 
-        assertThatThrownBy(() -> ordenTrabajoService.cambiarEstado(orden.getId(), "TRABAJANDO"))
+        assertThatThrownBy(() -> ordenTrabajoService.cambiarEstado(jefeTaller, orden.getId(), "TRABAJANDO"))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("No se puede cambiar el estado de una orden ya entregada");
     }
@@ -371,7 +371,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
         RepuestoOrdenRequest repuestoRequest = RepuestoOrdenRequest.builder()
                 .inventarioId(repuesto.getId())
@@ -379,7 +379,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .precioUnitario(new BigDecimal("25.00"))
                 .build();
 
-        ordenTrabajoService.agregarRepuesto(orden.getId(), repuestoRequest);
+        ordenTrabajoService.agregarRepuesto(jefeTaller, orden.getId(), repuestoRequest);
 
         OrdenTrabajo actualizada = ordenTrabajoService.obtenerPorId(orden.getId());
         Inventario inventarioActualizado = inventarioRepository.findById(repuesto.getId()).orElseThrow();
@@ -398,7 +398,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
         RepuestoOrdenRequest repuestoRequest1 = RepuestoOrdenRequest.builder()
                 .inventarioId(repuesto.getId())
@@ -412,8 +412,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .precioUnitario(new BigDecimal("25.00"))
                 .build();
 
-        ordenTrabajoService.agregarRepuesto(orden.getId(), repuestoRequest1);
-        ordenTrabajoService.agregarRepuesto(orden.getId(), repuestoRequest2);
+        ordenTrabajoService.agregarRepuesto(jefeTaller, orden.getId(), repuestoRequest1);
+        ordenTrabajoService.agregarRepuesto(jefeTaller, orden.getId(), repuestoRequest2);
 
         OrdenTrabajo actualizada = ordenTrabajoService.obtenerPorId(orden.getId());
         Inventario inventarioActualizado = inventarioRepository.findById(repuesto.getId()).orElseThrow();
@@ -432,7 +432,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
         RepuestoOrdenRequest repuestoRequest = RepuestoOrdenRequest.builder()
                 .inventarioId(repuesto.getId())
@@ -440,7 +440,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .precioUnitario(new BigDecimal("25.00"))
                 .build();
 
-        assertThatThrownBy(() -> ordenTrabajoService.agregarRepuesto(orden.getId(), repuestoRequest))
+        assertThatThrownBy(() -> ordenTrabajoService.agregarRepuesto(jefeTaller, orden.getId(), repuestoRequest))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Stock insuficiente");
     }
@@ -453,7 +453,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .descripcionProblema("Ruido en motor")
                 .build();
 
-        OrdenTrabajo orden = ordenTrabajoService.crear(request);
+        OrdenTrabajo orden = ordenTrabajoService.crear(jefeTaller, request);
 
         RepuestoOrdenRequest repuestoRequest = RepuestoOrdenRequest.builder()
                 .inventarioId(repuesto.getId())
@@ -461,8 +461,8 @@ class OrdenTrabajoServiceIntegrationTest {
                 .precioUnitario(new BigDecimal("25.00"))
                 .build();
 
-        ordenTrabajoService.agregarRepuesto(orden.getId(), repuestoRequest);
-        ordenTrabajoService.quitarRepuesto(orden.getId(), repuesto.getId());
+        ordenTrabajoService.agregarRepuesto(jefeTaller, orden.getId(), repuestoRequest);
+        ordenTrabajoService.quitarRepuesto(jefeTaller, orden.getId(), repuesto.getId());
 
         OrdenTrabajo actualizada = ordenTrabajoService.obtenerPorId(orden.getId());
         Inventario inventarioActualizado = inventarioRepository.findById(repuesto.getId()).orElseThrow();

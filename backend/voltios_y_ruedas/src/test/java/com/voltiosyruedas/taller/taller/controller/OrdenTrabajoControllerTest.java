@@ -139,7 +139,7 @@ class OrdenTrabajoControllerTest {
                 .estado("RECIEN_INGRESADO")
                 .build();
 
-        when(ordenTrabajoService.crear(any())).thenReturn(ordenCreada);
+        when(ordenTrabajoService.crear(any(Usuario.class), any(OrdenTrabajoRequest.class))).thenReturn(ordenCreada);
 
         mockMvc.perform(post("/api/ordenes")
                         .with(csrf())
@@ -195,7 +195,7 @@ class OrdenTrabajoControllerTest {
                 .costoTotal(new BigDecimal("100.00"))
                 .build();
 
-        when(ordenTrabajoService.actualizar(eq(1L), any())).thenReturn(ordenActualizada);
+        when(ordenTrabajoService.actualizar(any(Usuario.class), eq(1L), any(OrdenTrabajoRequest.class))).thenReturn(ordenActualizada);
 
         mockMvc.perform(put("/api/ordenes/1")
                         .with(csrf())
@@ -219,7 +219,7 @@ class OrdenTrabajoControllerTest {
                 .estado("TRABAJANDO")
                 .build();
 
-        when(ordenTrabajoService.cambiarEstado(eq(1L), eq("TRABAJANDO"))).thenReturn(ordenActualizada);
+        when(ordenTrabajoService.cambiarEstado(any(Usuario.class), eq(1L), eq("TRABAJANDO"))).thenReturn(ordenActualizada);
 
         mockMvc.perform(put("/api/ordenes/1/estado")
                         .with(csrf())

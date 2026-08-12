@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.auth.controller;
 
+import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.service.UsuarioService;
@@ -20,41 +21,55 @@ import java.util.List;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final AuditService auditService;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<Page<Usuario>> listar(Pageable pageable) {
-        return ResponseEntity.ok(usuarioService.listar(pageable));
+    public ResponseEntity<Page<UsuarioResponse>> listar(Pageable pageable) {
+        Page<UsuarioResponse> respuesta = usuarioService.listar(pageable).map(usuarioService::toResponse);
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/todos")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<List<Usuario>> listarTodos() {
-        return ResponseEntity.ok(usuarioService.listarTodos());
+    public ResponseEntity<List<UsuarioResponse>> listarTodos() {
+        List<UsuarioResponse> respuesta = usuarioService.listarTodos().stream()
+                .map(usuarioService::toResponse)
+                .toList();
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/mecanicos")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<List<Usuario>> obtenerMecanicos() {
-        return ResponseEntity.ok(usuarioService.obtenerMecanicos());
+    public ResponseEntity<List<UsuarioResponse>> obtenerMecanicos() {
+        List<UsuarioResponse> respuesta = usuarioService.obtenerMecanicos().stream()
+                .map(usuarioService::toResponse)
+                .toList();
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<Usuario> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(usuarioService.obtenerPorId(id));
+    public ResponseEntity<UsuarioResponse> obtenerPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.toResponse(usuarioService.obtenerPorId(id)));
     }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Usuario> crear(@Valid @RequestBody Usuario usuario) {
-        return ResponseEntity.ok(usuarioService.crear(usuario));
+    public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody Usuario usuario) {
+        Usuario guardado = usuarioService.crear(usuario);
+        auditService.registrar("CREAR_USUARIO", "USUARIO", guardado.getId(),
+                "Creado el usuario " + guardado.getEmail());
+        return ResponseEntity.ok(usuarioService.toResponse(guardado));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Usuario> actualizar(@PathVariable Long id, @Valid @RequestBody Usuario usuario) {
-        return ResponseEntity.ok(usuarioService.actualizar(id, usuario));
+    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id, @Valid @RequestBody Usuario usuario) {
+        Usuario guardado = usuarioService.actualizar(id, usuario);
+        auditService.registrar("ACTUALIZAR_USUARIO", "USUARIO", id,
+                "Actualizado el usuario " + guardado.getEmail());
+        return ResponseEntity.ok(usuarioService.toResponse(guardado));
     }
 
     @PutMapping("/{id}/password")
@@ -76,24 +91,6 @@ public class UsuarioController {
     @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> getCurrentUser(Authentication authentication) {
         Usuario usuario = (Usuario) authentication.getPrincipal();
-
-        UsuarioResponse response = UsuarioResponse.builder()
-                .id(usuario.getId())
-                .nombre(usuario.getNombre())
-                .apellido(usuario.getApellido())
-                .email(usuario.getEmail())
-                .telefono(usuario.getTelefono())
-                .direccion(usuario.getDireccion())
-                .activo(usuario.getActivo())
-                .fechaCreacion(usuario.getFechaCreacion())
-                .fechaActualizacion(usuario.getFechaActualizacion())
-                .rol(UsuarioResponse.RolResponse.builder()
-                        .id(usuario.getRol().getId())
-                        .nombre(usuario.getRol().getNombre())
-                        .descripcion(usuario.getRol().getDescripcion())
-                        .build())
-                .build();
-
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(usuarioService.toResponse(usuario));
     }
 }
