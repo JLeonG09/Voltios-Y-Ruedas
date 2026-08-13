@@ -2,7 +2,7 @@
 
 > Documento vivo: resume qué hay construido hasta hoy, cómo se ejecuta, qué se corrigió recientemente y cuáles son las tareas futuras sugeridas.
 
-**Fecha:** 2026-08-11
+**Fecha:** 2026-08-13
 **Stack:** Monolito Spring Boot + React (Vite) + PostgreSQL + Redis, todo en Docker Compose.
 
 ---
@@ -22,7 +22,7 @@ Roles: `ADMIN`, `JEFE_TALLER`, `MECANICO`, `CLIENTE`.
 
 | Capa | Tecnología |
 |------|-----------|
-| Backend | Java 21, Spring Boot 3.3.4 (Web, Data JPA, Security, Validation), Spring Security + JWT (HS512), BCrypt (factor 12), Flyway, Lombok, springdoc-openapi (Swagger) |
+| Backend | Java 21, Spring Boot 3.3.4 (Web, Data JPA, Security, Validation), Spring Security + JWT (HS512), BCrypt (factor 12), Flyway, Lombok, springdoc-openapi (Swagger), spring-boot-starter-mail (SMTP) |
 | Frontend | React 19 + Vite 8 + TypeScript, Tailwind CSS (`darkMode: 'class'`), React Hook Form + Zod, Zustand (persistencia), Axios |
 | BD | PostgreSQL 16 (volumen `pgdata`) |
 | Caché/Redis | Redis 7 (volumen `redisdata`) |
@@ -48,7 +48,7 @@ vehiculo/    → Vehículo (estados), mis-vehiculos, CRUD por rol
 inventario/  → Repuestos, stock-bajo, activos, CRUD
 ```
 
-Migraciones Flyway en `backend/voltios_y_ruedas/src/main/resources/db/migration/` (`V1__init_schema.sql`, `V2__vehiculos.sql`).
+Migraciones Flyway en `backend/voltios_y_ruedas/src/main/resources/db/migration/` (`V1__init_schema.sql` → `V5__agregar_email_verificado.sql`).
 
 ---
 
@@ -92,7 +92,7 @@ docker compose logs -f frontend   # o app / postgres / redis
 
 ## 5. Páginas del frontend
 
-**Públicas:** Landing (`/`), Login (`/login`), Registro (`/register`).
+**Públicas:** Landing (`/`), Login (`/login`), Registro (`/register`), Verificar email (`/verificar-email`), Recuperar contraseña (`/recuperar-password`).
 
 **Staff (`ADMIN`/`JEFE_TALLER`/`MECANICO`):**
 - `/dashboard` — métricas, reservas/órdenes recientes, stock bajo, gráfica semanal
@@ -114,62 +114,51 @@ Guardas de rutas en `App.tsx`: `RutaStaff`, `RutaCliente`, `RutaProtegida`. La r
 ## 6. Correcciones recientes (última sesión de trabajo)
 
 Backend:
-- Agregado **Redis** al compose (requerido por Spring Boot al arrancar).
-- Permitido **Swagger/OpenAPI** en `SecurityConfig`.
-- Fix de **login** con `SecurityContextHolder.setAuthentication(...)` en `AuthService` (ClassCastException).
-- Usuario admin recreado (id=1).
+- **Verificación de correo y cuenta pendiente:** al registrarse se genera un código de 6 dígitos por SMTP; la cuenta queda `pendiente` (`activo=false`, `emailVerificado=false`) hasta confirmar con `POST /api/auth/verificar-email`. El login de una cuenta pendiente devuelve `403` con mensaje claro (se maneja `DisabledException`). En dev (`MAIL_ENABLED=false`) el código se imprime por consola y la cuenta queda verificada para no bloquear el login.
+- **Recuperación de contraseña por correo:** `POST /api/auth/recuperar-password` envía un token de un solo uso por SMTP con enlace `{FRONTEND_URL}/reestablecer-password?token=...`; en dev devuelve el token en la respuesta.
+- **Notificaciones por correo:** aviso de agenda de diagnóstico al jefe de taller y cambios de estado de órdenes de trabajo al cliente/jefe.
+- **Refresh tokens con rotación y reuso:** cada renovación revoca el token usado y emite uno nuevo; un refresh token reutilizado revoca toda la familia. El logout revoca los tokens activos.
+- **Sesión por inactividad:** cierre automático tras el timeout configurado (`sesionTimeout`, 60 min por defecto) y al volver a una pestaña abandonada más allá del límite.
+- **Validaciones CR:** teléfono de 8 dígitos con `+506` opcional y nombres/apellidos de 2 a 50 caracteres (aplicadas en backend y frontend).
 
 Frontend:
-- Todos los `services/*.ts` usan el prefijo **`/api/`** (nginx solo proxya `/api/*`).
-- **Bug crítico de cliente:** `vehiculoService.ts` no tenía `/api/` → las llamadas devolvían el `index.html` (200) y las páginas de cliente crasheaban al hacer `.map` sobre un string. Corregido y verificado (200 en `mis-vehiculos`, `mis-reservas`, `mi-historial`).
-- Página `register` en blanco → `dark:bg-surface-950`→`dark:bg-surface-900` en `AuthLayout`.
-- Dashboard: optional chaining en `reservasRes?.content`, `ErrorBoundary` global en `App`.
-- Fix de TypeScript en `ConfiguracionPage` (`Check` import, `timezoneOptions` duplicado, `Switch` con `onChange(checked)`, tabs tipados con `TabId`), `validation.ts` (`rolId: z.coerce.number().optional()`), `UsuariosPage` (`rolId ?? 4`).
-- **Modo oscuro completo:** fuente única de tema en `uiStore` (persist + clase `dark` en `<html>`), init sin parpadeo en `index.html`, `useDarkMode` delegando al store, `dark:` en layout, componentes UI (Button, Card, Input, Select, Switch, Badge, Modal, Table, Toast, Tabs) y todas las páginas.
-- Páginas nuevas: `UsuariosPage`, `ConfiguracionPage` (rutas y navegación agregadas).
+- Página `/verificar-email` para confirmar el código y badge **Pendiente** en el panel de usuarios.
+- Sesión persistida en `sessionStorage` (cerrar la pestaña cierra la sesión).
+- Tests de integración y controladores en verde (**161 tests**) con `@WithMockUsuario` y fixtures.
+- Fix de costos de repuestos: el subtotal ahora se calcula en Java (la columna generada en BD era `null` en memoria).
 
 ---
 
 ## 7. Problemas conocidos / notas
 
-- **Chunk grande (~511 kB):** Vite avisa que el bundle supera 500 kB → pendiente code-splitting (ver tareas).
-- **Notificaciones del Header** son estáticas (array hardcodeado) — no hay backend aún.
-- **Botones placeholder:** "Ver todas"/"Ver reporte completo" no hacen nada.
-- **Dashboard** conserva `console.log` de depuración.
-- **`ConfiguracionPage`** guarda de forma simulada (`setTimeout`): cambio de contraseña, 2FA, timeout de sesión, logs y datos de perfil no se persisten en backend.
-- **Reservas (cliente):** el backend solo permite *cancelar* a clientes (no actualizar) → el botón "Editar" de `MisReservasPage` puede dar 403 si el cliente intenta guardar.
-- **`/perfil`** (enlace "Mi perfil" del Header) no tiene ruta definida → 404 de la SPA.
-- **`/recuperar-password`** (enlace en Login) no tiene página ni endpoint.
-- **Logout** solo limpia `localStorage`; no hay blacklist de tokens (agenda: ver tareas).
-- El historial de usuarios incluye campos sensibles (`password` BCrypt) en la respuesta del listado — a revisar para no exponer el hash.
+- **Página de reestablecer contraseña pendiente:** el correo de recuperación enlaza a `/reestablecer-password?token=...`, pero esa ruta/página aún no existe (el endpoint `POST /api/auth/reestablecer-password` sí está implementado y `reestablecerPassword` ya está en `authService.ts`).
+- **Sesión en `sessionStorage`:** al cerrar la pestaña del navegador se pierde la sesión (comportamiento intencional para mitigar secuestro de sesión).
+- **Envío de correos requiere SMTP:** configurar `MAIL_ENABLED`, `MAIL_USERNAME`, `MAIL_PASSWORD` y `FRONTEND_URL` (ver `.env.example`). En dev sin SMTP los códigos/tokens se loguean por consola.
+- **Preferencia de tema "Sistema":** se resuelve a claro/oscuro al guardar; no se persiste el modo `system` como tal.
+- **Auditoría parcial:** se registran acciones de órdenes e inventario en backend, pero el toggle de auditoría de la página Configuración no persiste.
+- **i18n:** la opción de idioma en Configuración aún no tiene efecto.
+- **Paginación:** los listados usan `Pageable`, pero la paginación/filtros completos en todas las tablas está pendiente (hoy hay búsqueda con debounce en reservas e inventario y filtros en usuarios/reservas).
+- **Caché inmutable de nginx:** tras cada deploy recargar con **Ctrl+Shift+R**.
 
 ---
 
 ## 8. Tareas futuras sugeridas
 
 ### Prioridad alta
-- [ ] **Code-splitting del frontend:** usar `React.lazy` + `Suspense` para las rutas (o `dynamic import`) y eliminar el warning de chunk > 500 kB.
-- [ ] **Persistir configuración real:** endpoints backend para perfil, cambio de contraseña y preferencias de la página Configuración (hoy es simulado).
-- [ ] **Conectar notificaciones del Header** a un backend real (o quitarlas si es puramente decorativo).
-- [ ] **Endpoint de recuperación de contraseña** (`/recuperar-password`) + página, o quitar el enlace.
-- [ ] **Página "Mi perfil"** (`/perfil`) o quitar el enlace del Header.
-- [ ] **No exponer el hash de password** en `UsuarioResponse` (DTO sin `password`).
+- [ ] **Página `/reestablecer-password`:** el correo de recuperación ya apunta a esta ruta y el endpoint backend existe; falta la página que reciba el `token` de la query y envíe el nuevo password.
+- [ ] **Despliegue con SMTP real:** configurar credenciales SMTP (Brevo/Gmail) en producción para verificación de correo y notificaciones por email.
+- [ ] **Backups de BD y HTTPS** en el despliegue de producción (Render ya ofrece TLS automático; falta política de backups).
 
 ### Prioridad media
-- [ ] **Refresh tokens (7 días) + blacklist en Redis** al hacer logout, según directrices de `AGENTS.md`.
-- [ ] **Rate limiting** en `/api/auth/login` (Bucket4j u otro) para evitar fuerza bruta.
-- [ ] **Headers de seguridad** (HSTS, X-Frame-Options, CSP, etc.) en el backend.
-- [ ] **Backend para reservas de cliente:** permitir que el cliente edite su reserva (hoy solo cancelar), o esconder el botón "Editar" para CLIENTE.
-- [ ] **Pruebas:** JUnit 5 + Mockito + TestContainers (backend) y Vitest + React Testing Library (frontend), con cobertura según `AGENTS.md` (≥70% servicios).
-- [ ] **Dashboard real:** implementar acciones de los botones "Ver todas"/"Ver reporte completo" y quitar `console.log`.
+- [ ] Persistir la preferencia **"Sistema"** del selector de tema (hoy se resuelve a claro/oscuro al guardar).
+- [ ] **Auditoría completa** desde la página Configuración (hoy el toggle no persiste; la auditoría backend ya registra órdenes e inventario).
+- [ ] **Paginación/filtros completos** en todas las tablas.
+- [ ] Medir **cobertura de pruebas** (objetivo según `AGENTS.md`: ≥70% servicios, ≥50% controladores) con Jacoco y TestContainers (ya en el `pom.xml`).
 
 ### Prioridad baja / mejoras
-- [ ] Persistir la preferencia "Sistema" del selector de tema (hoy se resuelve a claro/oscuro al guardar).
-- [ ] Sistema de auditoría/logs de actividad (el toggle de Configuración no persiste).
-- [ ] Paginación/filtros completos y búsquedas debounced en listados.
-- [ ] CI/CD (GitHub Actions) con build + tests + security scan, y branches `develop`/`main` protegidas.
-- [ ] Documentar CHANGELOG y versionado SemVer.
-- [ ] Internacionalización (i18n) — ya hay opción de idioma en Configuración (sin efecto).
+- [ ] Internacionalización (**i18n**) — la opción de idioma en Configuración aún no tiene efecto.
+- [ ] Revisar credenciales de prueba (sección 4) conforme evolucione la BD.
+- [ ] Versionado **SemVer** con tags y releases en GitHub.
 
 ---
 
