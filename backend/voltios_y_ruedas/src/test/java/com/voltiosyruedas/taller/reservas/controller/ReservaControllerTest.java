@@ -8,6 +8,7 @@ import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.reservas.service.ReservaService;
+import com.voltiosyruedas.taller.testutil.WithMockUsuario;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -139,7 +140,7 @@ class ReservaControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "cliente@test.com", roles = {"CLIENTE"})
+    @WithMockUsuario(username = "cliente@test.com", rol = "CLIENTE")
     void misReservas_deberiaRetornarReservasDelCliente() throws Exception {
         when(reservaService.listarPorCliente(any())).thenReturn(List.of(reserva));
 
@@ -175,7 +176,7 @@ class ReservaControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "cliente@test.com", roles = {"CLIENTE"})
+    @WithMockUsuario(username = "cliente@test.com", rol = "CLIENTE")
     void crear_deberiaCrearReserva() throws Exception {
         Reserva reservaCreada = Reserva.builder()
                 .id(2L)

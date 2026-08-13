@@ -82,7 +82,7 @@ class OrdenTrabajoServiceIntegrationTest {
                 .apellido("Pérez")
                 .email("juan.perez@test.com")
                 .password("password123")
-                .telefono("123456789")
+                .telefono("88888888")
                 .direccion("Calle Falsa 123")
                 .rol(rolCliente)
                 .activo(true)
@@ -170,7 +170,7 @@ class OrdenTrabajoServiceIntegrationTest {
 
         assertThatThrownBy(() -> ordenTrabajoService.crear(jefeTaller, request))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Ya existe una orden con ese número");
+                .hasMessageContaining("Ya existe una orden con ese numero");
     }
 
     @Test
@@ -321,10 +321,12 @@ class OrdenTrabajoServiceIntegrationTest {
 
         List<Bitacora> bitacoras = ordenTrabajoService.obtenerBitacora(orden.getId());
 
-        assertThat(bitacoras).hasSize(1);
-        assertThat(bitacoras.get(0).getAccion()).isEqualTo("CAMBIO_ESTADO");
-        assertThat(bitacoras.get(0).getEstadoAnterior()).isEqualTo("RECIEN_INGRESADO");
-        assertThat(bitacoras.get(0).getEstadoNuevo()).isEqualTo("TRABAJANDO");
+        assertThat(bitacoras).hasSize(2);
+        Bitacora cambio = bitacoras.stream()
+                .filter(b -> "CAMBIO_ESTADO".equals(b.getAccion()))
+                .findFirst().orElseThrow();
+        assertThat(cambio.getEstadoAnterior()).isEqualTo("RECIEN_INGRESADO");
+        assertThat(cambio.getEstadoNuevo()).isEqualTo("TRABAJANDO");
     }
 
     @Test

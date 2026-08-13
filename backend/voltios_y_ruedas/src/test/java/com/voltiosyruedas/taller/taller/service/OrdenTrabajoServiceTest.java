@@ -5,6 +5,7 @@ import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.service.UsuarioService;
 import com.voltiosyruedas.taller.inventario.entity.Inventario;
 import com.voltiosyruedas.taller.inventario.repository.InventarioRepository;
+import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.reservas.repository.ReservaRepository;
 import com.voltiosyruedas.taller.taller.dto.OrdenTrabajoRequest;
@@ -59,6 +60,9 @@ class OrdenTrabajoServiceTest {
 
     @Mock
     private BitacoraRepository bitacoraRepository;
+
+    @Mock
+    private MailService mailService;
 
     @InjectMocks
     private OrdenTrabajoService ordenTrabajoService;
@@ -286,7 +290,6 @@ class OrdenTrabajoServiceTest {
 
     @Test
     void cambiarEstado_comoCliente_deberiaLanzarAccessDenied() {
-        when(ordenTrabajoRepository.findById(1L)).thenReturn(Optional.of(orden));
         assertThatThrownBy(() -> ordenTrabajoService.cambiarEstado(cliente, 1L, "TRABAJANDO"))
                 .isInstanceOf(AccessDeniedException.class);
     }
@@ -300,7 +303,6 @@ class OrdenTrabajoServiceTest {
 
     @Test
     void eliminar_comoNoAdmin_deberiaLanzarAccessDenied() {
-        when(ordenTrabajoRepository.findById(1L)).thenReturn(Optional.of(orden));
         assertThatThrownBy(() -> ordenTrabajoService.eliminar(mecanico, 1L))
                 .isInstanceOf(AccessDeniedException.class);
         verify(ordenTrabajoRepository, never()).delete(any(OrdenTrabajo.class));
@@ -344,7 +346,6 @@ class OrdenTrabajoServiceTest {
         RepuestoOrdenRequest repuestoRequest = RepuestoOrdenRequest.builder()
                 .inventarioId(1L).cantidad(2).precioUnitario(new BigDecimal("25.00")).build();
 
-        when(ordenTrabajoRepository.findById(1L)).thenReturn(Optional.of(orden));
         assertThatThrownBy(() -> ordenTrabajoService.agregarRepuesto(cliente, 1L, repuestoRequest))
                 .isInstanceOf(AccessDeniedException.class);
         verify(inventarioRepository, never()).save(any(Inventario.class));

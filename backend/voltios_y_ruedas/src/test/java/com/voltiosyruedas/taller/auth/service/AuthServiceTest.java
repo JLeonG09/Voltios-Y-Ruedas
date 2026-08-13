@@ -10,6 +10,7 @@ import com.voltiosyruedas.taller.auth.repository.RolRepository;
 import com.voltiosyruedas.taller.auth.repository.UsuarioRepository;
 import com.voltiosyruedas.taller.auth.security.JwtUtil;
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
+import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,15 @@ class AuthServiceTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private PasswordResetService passwordResetService;
+
+    @Mock
+    private EmailVerificationService emailVerificationService;
+
+    @Mock
+    private MailService mailService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -96,6 +106,8 @@ class AuthServiceTest {
 
         rolCliente = new Rol(4L, "CLIENTE", "Cliente del taller");
 
+        lenient().when(mailService.estaHabilitado()).thenReturn(false);
+
         registerRequest = RegisterRequest.builder()
                 .nombre("Juan")
                 .apellido("Pérez")
@@ -114,7 +126,7 @@ class AuthServiceTest {
     @Test
     void registrar_exitoso_deberiaCrearUsuarioConRolCliente() {
         when(usuarioRepository.existsByEmail(registerRequest.getEmail())).thenReturn(false);
-        when(rolRepository.findById(4L)).thenReturn(Optional.of(rolCliente));
+        when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.of(rolCliente));
         when(passwordEncoder.encode(registerRequest.getPassword())).thenReturn("encodedPassword");
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
             Usuario u = invocation.getArgument(0);
@@ -134,37 +146,12 @@ class AuthServiceTest {
         assertThat(resultado.getDireccion()).isEqualTo("Calle Falsa 123");
         assertThat(resultado.getRol().getNombre()).isEqualTo("CLIENTE");
         assertThat(resultado.getActivo()).isTrue();
+        assertThat(resultado.getEmailVerificado()).isTrue();
 
         verify(usuarioRepository, times(1)).existsByEmail(registerRequest.getEmail());
-        verify(rolRepository, times(1)).findById(4L);
+        verify(rolRepository, times(1)).findByNombre("CLIENTE");
         verify(passwordEncoder, times(1)).encode(registerRequest.getPassword());
         verify(usuarioRepository, times(1)).save(any(Usuario.class));
-    }
-
-    @Test
-    void registrar_conRolEspecifico_deberiaAsignarRolSolicitado() {
-        Rol rolMecanico = new Rol(3L, "MECANICO", "Mecánico del taller");
-        RegisterRequest requestConRol = RegisterRequest.builder()
-                .nombre("Carlos")
-                .apellido("Mecánico")
-                .email("carlos@test.com")
-                .password("password123")
-                .rolId(3L)
-                .build();
-
-        when(usuarioRepository.existsByEmail(requestConRol.getEmail())).thenReturn(false);
-        when(rolRepository.findById(3L)).thenReturn(Optional.of(rolMecanico));
-        when(passwordEncoder.encode(requestConRol.getPassword())).thenReturn("encodedPassword");
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> {
-            Usuario u = invocation.getArgument(0);
-            u.setId(2L);
-            return u;
-        });
-
-        Usuario resultado = authService.registrar(requestConRol);
-
-        assertThat(resultado.getRol().getNombre()).isEqualTo("MECANICO");
-        verify(rolRepository, times(1)).findById(3L);
     }
 
     @Test
@@ -176,7 +163,7 @@ class AuthServiceTest {
                 .hasMessageContaining("El email ya está registrado");
 
         verify(usuarioRepository, times(1)).existsByEmail(registerRequest.getEmail());
-        verify(rolRepository, never()).findById(anyLong());
+        verify(rolRepository, never()).findByNombre(anyString());
         verify(passwordEncoder, never()).encode(anyString());
         verify(usuarioRepository, never()).save(any(Usuario.class));
     }
@@ -184,13 +171,13 @@ class AuthServiceTest {
     @Test
     void registrar_rolNoEncontrado_deberiaLanzarExcepcion() {
         when(usuarioRepository.existsByEmail(registerRequest.getEmail())).thenReturn(false);
-        when(rolRepository.findById(4L)).thenReturn(Optional.empty());
+        when(rolRepository.findByNombre("CLIENTE")).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> authService.registrar(registerRequest))
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Rol no encontrado");
+                .hasMessageContaining("Rol CLIENTE no encontrado");
 
-        verify(rolRepository, times(1)).findById(4L);
+        verify(rolRepository, times(1)).findByNombre("CLIENTE");
     }
 
     @Test
@@ -336,5 +323,56 @@ class AuthServiceTest {
         assertThatThrownBy(() -> authService.refrescarToken(refreshToken))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Refresh token inválido o expirado");
+    }
+
+    @Test
+    void iniciarRecuperacion_desarrollo_devuelveTokenSinEnviarCorreo() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .build();
+
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
+        when(passwordResetService.crearToken("juan.perez@test.com")).thenReturn("token-rec-123");
+
+        String token = authService.iniciarRecuperacion("juan.perez@test.com");
+
+        assertThat(token).isEqualTo("token-rec-123");
+        verify(mailService, never()).enviarRecuperacionPassword(anyString(), anyString());
+    }
+
+    @Test
+    void iniciarRecuperacion_produccion_enviaCorreoYNoDevuelveToken() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .build();
+
+        when(mailService.estaHabilitado()).thenReturn(true);
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
+        when(passwordResetService.crearToken("juan.perez@test.com")).thenReturn("token-rec-123");
+
+        String token = authService.iniciarRecuperacion("juan.perez@test.com");
+
+        assertThat(token).isNull();
+        verify(mailService, times(1)).enviarRecuperacionPassword("juan.perez@test.com", "token-rec-123");
+    }
+
+    @Test
+    void iniciarRecuperacion_emailNoExistente_devuelveNullSinGenerarToken() {
+        when(usuarioRepository.findByEmail("no.existe@test.com")).thenReturn(Optional.empty());
+
+        String token = authService.iniciarRecuperacion("no.existe@test.com");
+
+        assertThat(token).isNull();
+        verify(passwordResetService, never()).crearToken(anyString());
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voltiosyruedas.taller.inventario.dto.InventarioRequest;
 import com.voltiosyruedas.taller.inventario.entity.Inventario;
 import com.voltiosyruedas.taller.inventario.service.InventarioService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -45,6 +46,32 @@ class InventarioControllerTest {
 
     private Inventario inventario;
     private InventarioRequest request;
+
+    @BeforeEach
+    void setUp() {
+        inventario = Inventario.builder()
+                .id(1L)
+                .codigo("REP-001")
+                .nombre("Filtro de aceite")
+                .categoria("Filtros")
+                .stockActual(10)
+                .stockMinimo(5)
+                .precioCompra(new BigDecimal("15.00"))
+                .precioVenta(new BigDecimal("25.00"))
+                .activo(true)
+                .build();
+
+        request = InventarioRequest.builder()
+                .codigo("REP-001")
+                .nombre("Filtro de aceite")
+                .categoria("Filtros")
+                .stockActual(10)
+                .stockMinimo(5)
+                .precioCompra(new BigDecimal("15.00"))
+                .precioVenta(new BigDecimal("25.00"))
+                .activo(true)
+                .build();
+    }
 
     @Test
     @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})

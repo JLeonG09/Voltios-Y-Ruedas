@@ -143,7 +143,7 @@ class AuthControllerTest {
                 .apellido("Pérez")
                 .email("juan.perez@test.com")
                 .password("password123")
-                .telefono("123456789")
+                .telefono("88888888")
                 .direccion("Calle Falsa 123")
                 .build();
 

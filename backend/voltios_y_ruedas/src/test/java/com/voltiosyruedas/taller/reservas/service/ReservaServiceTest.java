@@ -2,6 +2,7 @@ package com.voltiosyruedas.taller.reservas.service;
 
 import com.voltiosyruedas.taller.auth.entity.Rol;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.reservas.repository.ReservaRepository;
@@ -31,6 +32,9 @@ class ReservaServiceTest {
 
     @Mock
     private ReservaRepository reservaRepository;
+
+    @Mock
+    private MailService mailService;
 
     @InjectMocks
     private ReservaService reservaService;

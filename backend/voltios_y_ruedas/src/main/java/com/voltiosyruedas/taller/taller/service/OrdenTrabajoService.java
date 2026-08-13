@@ -2,6 +2,7 @@ package com.voltiosyruedas.taller.taller.service;
 
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import org.springframework.security.access.AccessDeniedException;
+import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.taller.dto.BitacoraResponse;
 import com.voltiosyruedas.taller.taller.dto.OrdenTrabajoRequest;
@@ -40,6 +41,7 @@ public class OrdenTrabajoService {
     private final InventarioRepository inventarioRepository;
     private final OrdenTrabajoInventarioRepository ordenTrabajoInventarioRepository;
     private final BitacoraRepository bitacoraRepository;
+    private final MailService mailService;
 
     public Page<OrdenTrabajo> listar(Pageable pageable) {
         return ordenTrabajoRepository.findAll(pageable);
@@ -144,6 +146,7 @@ public class OrdenTrabajoService {
             registrarBitacora(orden, solicitante, "CAMBIO_ESTADO",
                     "Cambio de estado de " + estadoAnterior + " a " + request.getEstado(),
                     estadoAnterior, request.getEstado());
+            notificarCambioEstado(orden, estadoAnterior, request.getEstado());
         }
         orden.setCostoTotal(orden.getCostoManoObra().add(orden.getCostoRepuestos()));
         return ordenTrabajoRepository.save(orden);
@@ -168,6 +171,7 @@ public class OrdenTrabajoService {
         registrarBitacora(guardada, solicitante, "CAMBIO_ESTADO",
                 "Cambio de estado de " + estadoAnterior + " a " + nuevoEstado,
                 estadoAnterior, nuevoEstado);
+        notificarCambioEstado(guardada, estadoAnterior, nuevoEstado);
         return guardada;
     }
 
@@ -212,6 +216,7 @@ public class OrdenTrabajoService {
                     .precioUnitario(request.getPrecioUnitario())
                     .build();
             ordenTrabajoInventarioRepository.save(nuevo);
+            orden.getRepuestosUtilizados().add(nuevo);
         }
         inventario.setStockActual(inventario.getStockActual() - request.getCantidad());
         inventarioRepository.save(inventario);
@@ -238,6 +243,7 @@ public class OrdenTrabajoService {
         inventario.setStockActual(inventario.getStockActual() + item.getCantidad());
         inventarioRepository.save(inventario);
         ordenTrabajoInventarioRepository.delete(item);
+        orden.getRepuestosUtilizados().remove(item);
         actualizarCostosOrden(orden);
         registrarBitacora(orden, solicitante, "REPUESTO_QUITADO",
                 "Repuesto " + inventario.getCodigo() + " devuelto al inventario",
@@ -247,7 +253,8 @@ public class OrdenTrabajoService {
     private void actualizarCostosOrden(OrdenTrabajo orden) {
         BigDecimal totalRepuestos = ordenTrabajoInventarioRepository
                 .findByOrdenTrabajo(orden).stream()
-                .map(OrdenTrabajoInventario::getSubtotal)
+                .map(item -> item.getPrecioUnitario()
+                        .multiply(BigDecimal.valueOf(item.getCantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         orden.setCostoRepuestos(totalRepuestos);
         orden.setCostoTotal(orden.getCostoManoObra().add(totalRepuestos));
@@ -266,6 +273,17 @@ public class OrdenTrabajoService {
                 .fecha(LocalDateTime.now())
                 .build();
         bitacoraRepository.save(bitacora);
+    }
+
+    /** Emails por cambio de estado de orden de trabajo. */
+    private void notificarCambioEstado(OrdenTrabajo orden, String estadoAnterior, String estadoNuevo) {
+        if ("TRABAJANDO".equals(estadoNuevo)) {
+            // Vehículo en trabajo: aviso al jefe de taller y al cliente.
+            mailService.notificarTrabajoVehiculo(orden);
+        } else {
+            // Resto de cambios: notifica al cliente.
+            mailService.notificarCambioEstadoOrden(orden, estadoAnterior, estadoNuevo);
+        }
     }
 
     public List<Bitacora> obtenerBitacora(Long ordenId) {
@@ -320,11 +338,14 @@ public class OrdenTrabajoService {
     }
 
     private com.voltiosyruedas.taller.taller.dto.OrdenTrabajoInventarioResponse mapRepuesto(OrdenTrabajoInventario item) {
+        BigDecimal subtotal = item.getSubtotal() != null
+                ? item.getSubtotal()
+                : item.getPrecioUnitario().multiply(BigDecimal.valueOf(item.getCantidad()));
         return com.voltiosyruedas.taller.taller.dto.OrdenTrabajoInventarioResponse.builder()
                 .id(item.getId())
                 .cantidad(item.getCantidad())
                 .precioUnitario(item.getPrecioUnitario())
-                .subtotal(item.getSubtotal())
+                .subtotal(subtotal)
                 .fechaCreacion(item.getFechaCreacion())
                 .build();
     }
