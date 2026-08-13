@@ -34,6 +34,10 @@ logs/
 .DS_Store
 Thumbs.db
 
+# Obsidian vault
+.obsidian/
+Voltios y Ruedas/.obsidian/
+
 # Misc
 .gradle/
 build/

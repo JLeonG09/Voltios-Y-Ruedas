@@ -1,4 +1,7 @@
 # Line endings
+* text=auto
+
+# Scripts y ejecutables
 *.sh text eol=lf
 mvnw text eol=lf
 mvnw.cmd text eol=crlf
