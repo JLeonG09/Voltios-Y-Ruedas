@@ -9,7 +9,7 @@ import { Table, Column, Pagination } from '../components/ui/Table';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { usuarioService } from '../services/usuarioService';
-import { registerSchema, type RegisterFormData } from '../utils/validation';
+import { usuarioSchema, type UsuarioFormData } from '../utils/validation';
 import { formatDateTime, getEstadoColor } from '../utils/helpers';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
@@ -48,9 +48,13 @@ export const UsuariosPage = () => {
       </Badge>
     )},
     { key: 'activo', header: 'Estado', render: (u) => (
-      <Badge variant={u.activo ? 'success' : 'gray'} dot>
-        {u.activo ? 'Activo' : 'Inactivo'}
-      </Badge>
+      u.emailVerificado === false ? (
+        <Badge variant="warning" dot>Pendiente</Badge>
+      ) : (
+        <Badge variant={u.activo ? 'success' : 'gray'} dot>
+          {u.activo ? 'Activo' : 'Inactivo'}
+        </Badge>
+      )
     )},
     { key: 'fechaCreacion', header: 'Creado', render: (u) => formatDateTime(u.fechaCreacion) },
     { key: 'actions', header: 'Acciones', align: 'center', render: (u, idx) => (
@@ -75,8 +79,8 @@ export const UsuariosPage = () => {
     reset,
     watch,
     formState: { errors },
-  } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+  } = useForm<UsuarioFormData>({
+    resolver: zodResolver(usuarioSchema),
     defaultValues: {
       rolId: 4,
     },
@@ -132,13 +136,17 @@ export const UsuariosPage = () => {
     setShowModal(true);
   };
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: UsuarioFormData) => {
+    if (!editingUsuario && !data.password) {
+      addNotification({ type: 'error', title: 'Error', message: 'La contraseña es obligatoria' });
+      return;
+    }
     try {
       if (editingUsuario) {
         await usuarioService.actualizar(editingUsuario.id, data);
         addNotification({ type: 'success', title: 'Éxito', message: 'Usuario actualizado' });
       } else {
-        await usuarioService.crear({ ...data, rolId: data.rolId ?? 4 });
+        await usuarioService.crear({ ...data, password: data.password!, rolId: data.rolId ?? 4 });
         addNotification({ type: 'success', title: 'Éxito', message: 'Usuario creado' });
       }
       setShowModal(false);

@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { authService } from '../services/authService';
+import { telefonoOpcional } from '../utils/validation';
 import { z } from 'zod';
 
 const regexSoloLetras = /^[\p{L}\p{M}'. -]+$/u;
@@ -16,15 +17,15 @@ const regexSoloLetras = /^[\p{L}\p{M}'. -]+$/u;
 const perfilSchema = z.object({
   nombre: z
     .string()
-    .min(1, 'El nombre es obligatorio')
-    .max(100)
+    .min(2, 'El nombre debe tener al menos 2 caracteres')
+    .max(50, 'Máximo 50 caracteres')
     .regex(regexSoloLetras, 'El nombre solo puede contener letras'),
   apellido: z
     .string()
-    .min(1, 'El apellido es obligatorio')
-    .max(100)
+    .min(2, 'El apellido debe tener al menos 2 caracteres')
+    .max(50, 'Máximo 50 caracteres')
     .regex(regexSoloLetras, 'El apellido solo puede contener letras'),
-  telefono: z.string().max(20).optional(),
+  telefono: telefonoOpcional,
   direccion: z.string().max(255).optional(),
 });
 type PerfilFormData = z.infer<typeof perfilSchema>;

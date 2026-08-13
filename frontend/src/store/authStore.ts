@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { UsuarioResponse, JwtResponse } from '../types';
 
 interface AuthState {
@@ -50,6 +50,9 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      // sessionStorage: la sesión queda ligada a la pestaña; al cerrarla o
+      // abandonarla (requisito de seguridad) se pierde y hay que volver a entrar.
+      storage: createJSONStorage(() => sessionStorage),
       partialize: (state) => ({
         token: state.token,
         refreshToken: state.refreshToken,

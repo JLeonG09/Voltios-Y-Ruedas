@@ -23,10 +23,10 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
 
     @Query("SELECT r FROM Reserva r WHERE " +
             "(:estado IS NULL OR r.estado = :estado) AND " +
-            "(:search IS NULL OR LOWER(r.cliente.nombre) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(r.cliente.apellido) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(r.cliente.email) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(r.categoriaServicio) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(r.descripcion) LIKE LOWER(CONCAT('%', :search, '%')))")
+            "(:search IS NULL OR LOWER(r.cliente.nombre) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(r.cliente.apellido) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(r.cliente.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(r.categoriaServicio) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(r.descripcion) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
     Page<Reserva> filtrar(@Param("estado") String estado, @Param("search") String search, Pageable pageable);
 }

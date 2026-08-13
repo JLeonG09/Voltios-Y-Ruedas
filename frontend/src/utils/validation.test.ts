@@ -30,9 +30,50 @@ describe('registerSchema', () => {
       apellido: 'Pérez',
       email: 'juan@example.com',
       password: 'secreto1',
-      rolId: 4,
     });
     expect(result.success).toBe(true);
+  });
+
+  it('rechaza nombre de 1 carácter', () => {
+    const result = registerSchema.safeParse({
+      nombre: 'J',
+      apellido: 'Pérez',
+      email: 'juan@example.com',
+      password: 'secreto1',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rechaza nombre de más de 50 caracteres', () => {
+    const result = registerSchema.safeParse({
+      nombre: 'J'.repeat(51),
+      apellido: 'Pérez',
+      email: 'juan@example.com',
+      password: 'secreto1',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('acepta teléfono de Costa Rica con prefijo', () => {
+    const result = registerSchema.safeParse({
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      email: 'juan@example.com',
+      password: 'secreto1',
+      telefono: '+506 8888 8888',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rechaza teléfono que no es de Costa Rica', () => {
+    const result = registerSchema.safeParse({
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      email: 'juan@example.com',
+      password: 'secreto1',
+      telefono: '12345',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rechaza nombre vacío', () => {

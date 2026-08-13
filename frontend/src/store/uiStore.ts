@@ -16,12 +16,18 @@ interface UIState {
   removeNotification: (id: string) => void;
 }
 
+export interface NotificationAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Notification {
   id: string;
   type: 'success' | 'error' | 'warning' | 'info';
   title: string;
   message?: string;
   duration?: number;
+  action?: NotificationAction;
 }
 
 const prefersDark = (): boolean =>

@@ -7,6 +7,26 @@ const regexSoloLetras = /^[\p{L}\p{M}'. -]+$/u;
 // antes del punto y un TLD de 2+ letras (rechaza casos tipo "2@m.com").
 const regexEmail = /^[a-zA-Z0-9._%+-]{2,}@[a-zA-Z0-9-]{2,}(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$/;
 
+// Teléfono de Costa Rica: 8 dígitos, acepta prefijo +506 (opcional), espacios o guiones.
+const regexTelefono = /^(?:\+506[\s-]?)?\d{4}[\s-]?\d{4}$/;
+
+// Campo de teléfono opcional: vacío/undefined válido, si hay valor debe ser un teléfono CR.
+export const telefonoOpcional = z
+  .string()
+  .max(20, 'El teléfono no puede exceder 20 caracteres')
+  .optional()
+  .transform((v) => v?.trim() || undefined)
+  .refine((v) => v === undefined || regexTelefono.test(v), {
+    message: 'Teléfono inválido. Ej: +506 8888 8888',
+  });
+
+// Nombre y apellido: entre 2 y 50 caracteres, solo letras (incluye acentos, ñ, apóstrofes, guiones y puntos).
+const nombreObligatorio = z
+  .string()
+  .min(2, 'Debe tener al menos 2 caracteres')
+  .max(50, 'Máximo 50 caracteres')
+  .regex(regexSoloLetras, 'Solo puede contener letras');
+
 export const loginSchema = z.object({
   email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
@@ -21,24 +41,40 @@ export const recuperarPasswordSchema = z.object({
 export type RecuperarPasswordFormData = z.infer<typeof recuperarPasswordSchema>;
 
 export const registerSchema = z.object({
-  nombre: z
-    .string()
-    .min(1, 'El nombre es obligatorio')
-    .max(100, 'Máximo 100 caracteres')
-    .regex(regexSoloLetras, 'El nombre solo puede contener letras'),
-  apellido: z
-    .string()
-    .min(1, 'El apellido es obligatorio')
-    .max(100, 'Máximo 100 caracteres')
-    .regex(regexSoloLetras, 'El apellido solo puede contener letras'),
+  nombre: nombreObligatorio,
+  apellido: nombreObligatorio,
   email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(255),
-  telefono: z.string().max(20, 'Máximo 20 caracteres').optional(),
-  direccion: z.string().max(255, 'Máximo 255 caracteres').optional(),
-  rolId: z.coerce.number().optional(),
+  telefono: telefonoOpcional,
+  direccion: z.string().max(255, 'Máximo 255 caracteres').optional().transform((v) => v?.trim() || undefined),
 });
 
 export type RegisterFormData = z.infer<typeof registerSchema>;
+
+// Para gestión de usuarios por parte de ADMIN (incluye rol; el registro público no).
+// La contraseña es obligatoria solo al CREAR; al editar el campo no se renderiza,
+// por lo que se valida manualmente en la página (si no se exige, el formulario de
+// edición falla en silencio y nunca envía la actualización).
+export const usuarioSchema = registerSchema.extend({
+  rolId: z.coerce.number().optional(),
+  password: z
+    .string()
+    .min(6, 'La contraseña debe tener al menos 6 caracteres')
+    .max(255, 'Máximo 255 caracteres')
+    .optional(),
+});
+
+export type UsuarioFormData = z.infer<typeof usuarioSchema>;
+
+// Perfil de usuario (Configuración): nombre/apellido obligatorios, teléfono opcional.
+export const perfilSchema = z.object({
+  nombre: nombreObligatorio,
+  apellido: nombreObligatorio,
+  telefono: telefonoOpcional,
+  direccion: z.string().max(255, 'Máximo 255 caracteres').optional().transform((v) => v?.trim() || undefined),
+});
+
+export type PerfilFormData = z.infer<typeof perfilSchema>;
 
 export const reservaSchema = z.object({
   fechaHora: z.string().min(1, 'La fecha y hora son obligatorias'),

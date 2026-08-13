@@ -28,12 +28,18 @@ export const usuarioService = {
   },
 
   crear: async (data: Partial<Usuario> & { password: string; rolId: number }): Promise<Usuario> => {
-    const response = await api.post<Usuario>('/api/usuarios', data);
+    const { rolId, ...rest } = data;
+    const response = await api.post<Usuario>('/api/usuarios', { ...rest, rol: { id: rolId } });
     return response.data;
   },
 
-  actualizar: async (id: number, data: Partial<Usuario>): Promise<Usuario> => {
-    const response = await api.put<Usuario>(`/api/usuarios/${id}`, data);
+  actualizar: async (id: number, data: Partial<Usuario> & { rolId?: number }): Promise<Usuario> => {
+    const { rolId, ...rest } = data;
+    const payload: Record<string, unknown> = { ...rest };
+    if (rolId) {
+      payload.rol = { id: rolId };
+    }
+    const response = await api.put<Usuario>(`/api/usuarios/${id}`, payload);
     return response.data;
   },
 

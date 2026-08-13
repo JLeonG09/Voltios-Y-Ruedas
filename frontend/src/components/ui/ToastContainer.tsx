@@ -97,6 +97,11 @@ const ToastItem = ({ notification, onClose }: ToastItemProps) => {
     return () => window.clearTimeout(timer);
   }, [duration, onClose]);
 
+  const handleAction = () => {
+    notification.action?.onClick();
+    onClose();
+  };
+
   return (
     <div
       role="alert"
@@ -109,6 +114,15 @@ const ToastItem = ({ notification, onClose }: ToastItemProps) => {
           <p className="text-sm text-surface-600 dark:text-surface-300 mt-0.5 break-words">
             {notification.message}
           </p>
+        )}
+        {notification.action && (
+          <button
+            type="button"
+            onClick={handleAction}
+            className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-300 dark:hover:text-brand-200 transition-colors"
+          >
+            {notification.action.label}
+          </button>
         )}
       </div>
       <button

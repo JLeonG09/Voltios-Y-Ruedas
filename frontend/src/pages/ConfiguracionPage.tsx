@@ -9,6 +9,7 @@ import { useUIStore, type Tema } from '../store/uiStore';
 import { useEffect } from 'react';
 import { authService } from '../services/authService';
 import { preferenciasService } from '../services/preferenciasService';
+import { perfilSchema, type PerfilFormData } from '../utils/validation';
 import type { PreferenciasRequest } from '../types';
 
 const themeOptions: { value: Tema; label: string; icon: LucideIcon }[] = [
@@ -95,6 +96,8 @@ export const ConfiguracionPage = () => {
     watch,
     reset,
     setValue,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<ConfigForm>({
     defaultValues: {
@@ -187,13 +190,40 @@ export const ConfiguracionPage = () => {
   };
 
   const guardarPerfil = async (data: ConfigForm) => {
+    const validacion = perfilSchema.safeParse({
+      nombre: data.nombre,
+      apellido: data.apellido,
+      telefono: data.telefono,
+      direccion: data.direccion,
+    });
+
+    if (!validacion.success) {
+      clearErrors(['nombre', 'apellido', 'telefono', 'direccion']);
+      validacion.error.issues.forEach((issue) => {
+        const campo = issue.path[0];
+        if (campo) {
+          setError(campo as 'nombre' | 'apellido' | 'telefono' | 'direccion', {
+            type: 'manual',
+            message: issue.message,
+          });
+        }
+      });
+      addNotification({
+        type: 'error',
+        title: 'Revisa tus datos',
+        message: validacion.error.issues[0]?.message ?? 'Hay campos inválidos',
+      });
+      return;
+    }
+
+    const datos = validacion.data;
     setSaving(true);
     try {
       const actualizado = await authService.actualizarPerfil({
-        nombre: data.nombre,
-        apellido: data.apellido,
-        telefono: data.telefono,
-        direccion: data.direccion,
+        nombre: datos.nombre,
+        apellido: datos.apellido,
+        telefono: datos.telefono,
+        direccion: datos.direccion,
       });
       setUser(actualizado);
       addNotification({ type: 'success', title: 'Perfil actualizado', message: 'Tus datos se guardaron correctamente' });
@@ -244,8 +274,8 @@ export const ConfiguracionPage = () => {
               </div>
               <Input {...register('email')} type="email" label="Correo electrónico" error={errors.email?.message} disabled />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Input {...register('telefono')} type="tel" label="Teléfono" placeholder="+506 1234 5678" disabled={saving} />
-                <Input {...register('direccion')} label="Dirección" placeholder="Calle principal, San José" disabled={saving} />
+                <Input {...register('telefono')} type="tel" label="Teléfono" placeholder="+506 1234 5678" error={errors.telefono?.message} disabled={saving} />
+                <Input {...register('direccion')} label="Dirección" placeholder="Calle principal, San José" error={errors.direccion?.message} disabled={saving} />
               </div>
               <div className="flex justify-end pt-4 border-t border-surface-100 dark:border-surface-800">
                 <Button type="submit" loading={saving}>

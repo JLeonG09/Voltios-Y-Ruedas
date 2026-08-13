@@ -2,10 +2,12 @@ import { Outlet } from 'react-router-dom';
 import { Sidebar, Header } from './index';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
+import { useSessionTimeout } from '../../hooks/useSessionTimeout';
 
 export const MainLayout = () => {
   const { user, isAuthenticated } = useAuthStore();
   const { toggleSidebar } = useUIStore();
+  useSessionTimeout();
 
   if (!isAuthenticated || !user) {
     return <Outlet />;

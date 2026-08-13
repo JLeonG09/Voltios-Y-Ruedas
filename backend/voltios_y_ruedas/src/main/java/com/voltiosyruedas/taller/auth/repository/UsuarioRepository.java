@@ -17,9 +17,9 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     @Query("SELECT u FROM Usuario u WHERE " +
             "(:rolId IS NULL OR u.rol.id = :rolId) AND " +
-            "(:search IS NULL OR LOWER(u.nombre) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(u.apellido) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :search, '%')) " +
-            "OR LOWER(u.telefono) LIKE LOWER(CONCAT('%', :search, '%')))")
+            "(:search IS NULL OR LOWER(u.nombre) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(u.apellido) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(u.email) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')) " +
+            "OR LOWER(u.telefono) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))")
     Page<Usuario> filtrar(@Param("rolId") Long rolId, @Param("search") String search, Pageable pageable);
 }
