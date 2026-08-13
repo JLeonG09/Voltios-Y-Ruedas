@@ -24,19 +24,22 @@ import java.util.List;
 @Builder
 public class Usuario implements UserDetails {
 
+    // Teléfono opcional: vacío/ausente válido; si hay valor debe ser un número CR.
+    public static final String PATTERN_TELEFONO = "^(|(\\+506[ -]?)?\\d{4}[ -]?\\d{4})$";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false, length = 100)
     @NotBlank(message = "El nombre es obligatorio")
-    @Size(max = 100, message = "El nombre no puede exceder 100 caracteres")
+    @Size(min = 2, max = 50, message = "El nombre debe tener entre 2 y 50 caracteres")
     @Pattern(regexp = "^[\\p{L}\\p{M}'. -]+$", message = "El nombre solo puede contener letras")
     private String nombre;
 
     @Column(nullable = false, length = 100)
     @NotBlank(message = "El apellido es obligatorio")
-    @Size(max = 100, message = "El apellido no puede exceder 100 caracteres")
+    @Size(min = 2, max = 50, message = "El apellido debe tener entre 2 y 50 caracteres")
     @Pattern(regexp = "^[\\p{L}\\p{M}'. -]+$", message = "El apellido solo puede contener letras")
     private String apellido;
 
@@ -54,6 +57,7 @@ public class Usuario implements UserDetails {
     private String password;
 
     @Column(length = 20)
+    @Pattern(regexp = PATTERN_TELEFONO, message = "El teléfono debe ser un número de Costa Rica (ej: +506 8888 8888)")
     private String telefono;
 
     @Column(length = 255)
@@ -65,6 +69,10 @@ public class Usuario implements UserDetails {
     @Column(nullable = false)
     @Builder.Default
     private Boolean activo = true;
+
+    @Column(name = "email_verificado", nullable = false)
+    @Builder.Default
+    private Boolean emailVerificado = true;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;

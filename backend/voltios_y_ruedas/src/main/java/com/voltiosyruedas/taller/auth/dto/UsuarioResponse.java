@@ -32,6 +32,9 @@ public class UsuarioResponse {
     @Schema(description = "Indica si el usuario está activo", example = "true")
     private Boolean activo;
 
+    @Schema(description = "Indica si el correo electrónico fue verificado", example = "false")
+    private Boolean emailVerificado;
+
     @Schema(description = "Fecha de creación del usuario", example = "2026-01-15T10:30:00")
     private LocalDateTime fechaCreacion;
 

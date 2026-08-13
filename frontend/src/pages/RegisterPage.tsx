@@ -13,19 +13,12 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
-import { Input, Select } from "../components/ui/Input";
+import { Input } from "../components/ui/Input";
 import { Card } from "../components/ui/Card";
 import { registerSchema, type RegisterFormData } from "../utils/validation";
 import { useAuthStore } from "../store/authStore";
 import { useUIStore } from "../store/uiStore";
 import { authService } from "../services/authService";
-
-const rolOptions = [
-  { value: "4", label: "Cliente" },
-  { value: "3", label: "Mecánico" },
-  { value: "2", label: "Jefe de Taller" },
-  { value: "1", label: "Administrador" },
-];
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -40,9 +33,6 @@ export const RegisterPage = () => {
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
-    defaultValues: {
-      rolId: 4,
-    },
   });
 
   const password = watch("password") || "";
@@ -50,7 +40,16 @@ export const RegisterPage = () => {
   const onSubmit = async (data: RegisterFormData) => {
     setLoading(true);
     try {
-      await authService.register(data);
+      const creado = await authService.register(data);
+      if (creado.emailVerificado === false) {
+        addNotification({
+          type: "success",
+          title: "¡Cuenta creada!",
+          message: "Revisa tu correo y verifica tu cuenta para poder iniciar sesión",
+        });
+        navigate(`/verificar-email?email=${encodeURIComponent(creado.email)}`);
+        return;
+      }
       addNotification({
         type: "success",
         title: "¡Bienvenido!",
@@ -60,7 +59,21 @@ export const RegisterPage = () => {
     } catch (error: unknown) {
       const message =
         error instanceof Error ? error.message : "Error al registrarse";
-      addNotification({ type: "error", title: "Error", message });
+      if (/ya está registrad|ya existe/i.test(message)) {
+        addNotification({
+          type: "warning",
+          title: "Cuenta ya registrada",
+          message:
+            "Ya existe una cuenta con este correo. ¿Deseas iniciar sesión?",
+          duration: 8000,
+          action: {
+            label: "Ir a iniciar sesión",
+            onClick: () => navigate("/login", { state: { email: data.email } }),
+          },
+        });
+      } else {
+        addNotification({ type: "error", title: "Error", message });
+      }
     } finally {
       setLoading(false);
     }
@@ -154,15 +167,6 @@ export const RegisterPage = () => {
           placeholder="Calle principal, San José"
           leftIcon={<MapPin className="h-5 w-5" />}
           error={errors.direccion?.message}
-          disabled={loading}
-        />
-
-        <Select
-          {...register("rolId")}
-          label="Rol"
-          options={rolOptions}
-          placeholder="Selecciona un rol"
-          error={errors.rolId?.message}
           disabled={loading}
         />
 

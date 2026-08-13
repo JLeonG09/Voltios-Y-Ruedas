@@ -9,6 +9,7 @@ import type {
   ReestablecerPasswordRequest,
   CambiarPasswordRequest,
   ActualizarPerfilRequest,
+  VerificarEmailRequest,
 } from '../types';
 
 export const authService = {
@@ -19,6 +20,16 @@ export const authService = {
 
   register: async (data: RegisterRequest): Promise<UsuarioResponse> => {
     const response = await api.post<UsuarioResponse>('/api/auth/register', data);
+    return response.data;
+  },
+
+  verificarEmail: async (data: VerificarEmailRequest): Promise<{ mensaje: string }> => {
+    const response = await api.post<{ mensaje: string }>('/api/auth/verificar-email', data);
+    return response.data;
+  },
+
+  reenviarCodigo: async (email: string): Promise<{ mensaje: string; codigo?: string }> => {
+    const response = await api.post<{ mensaje: string; codigo?: string }>('/api/auth/reenviar-codigo', { email });
     return response.data;
   },
 

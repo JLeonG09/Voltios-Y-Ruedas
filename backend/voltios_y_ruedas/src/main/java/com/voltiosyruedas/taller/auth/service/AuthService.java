@@ -42,6 +42,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AuditService auditService;
     private final PasswordResetService passwordResetService;
+    private final EmailVerificationService emailVerificationService;
+    private final com.voltiosyruedas.taller.notificaciones.service.MailService mailService;
 
     @Transactional
     public Usuario registrar(RegisterRequest request) {
@@ -49,8 +51,14 @@ public class AuthService {
             throw ApiException.conflict("El email ya está registrado");
         }
 
-        Rol rol = rolRepository.findById(request.getRolId() != null ? request.getRolId() : 4L)
-                .orElseThrow(() -> ApiException.badRequest("Rol no encontrado"));
+        // El registro público siempre crea clientes; el rol no debe venir del request.
+        Rol rol = rolRepository.findByNombre("CLIENTE")
+                .orElseThrow(() -> ApiException.badRequest("Rol CLIENTE no encontrado"));
+
+        // Opción A: cuando el envío de correo está habilitado la cuenta queda
+        // PENDIENTE (inactiva y sin verificar) hasta que se confirme el código.
+        // En desarrollo (sin SMTP) la cuenta queda activa y verificada de inmediato.
+        boolean requiereVerificacion = mailService.estaHabilitado();
 
         Usuario usuario = Usuario.builder()
                 .nombre(request.getNombre())
@@ -60,12 +68,22 @@ public class AuthService {
                 .telefono(request.getTelefono())
                 .direccion(request.getDireccion())
                 .rol(rol)
-                .activo(true)
+                .activo(!requiereVerificacion)
+                .emailVerificado(!requiereVerificacion)
                 .build();
 
         Usuario guardado = usuarioRepository.save(usuario);
         auditService.registrar("REGISTRO", "USUARIO", guardado.getId(),
                 "Nuevo usuario registrado con email " + guardado.getEmail());
+
+        // Verificación de correo: genera y envía el código (Redis + SMTP/consola).
+        if (mailService.estaHabilitado()) {
+            try {
+                emailVerificationService.generarYCodigo(guardado.getEmail());
+            } catch (Exception e) {
+                logger.warn("No se pudo enviar el código de verificación a {}: {}", request.getEmail(), e.getMessage());
+            }
+        }
         return guardado;
     }
 
@@ -79,6 +97,12 @@ public class AuthService {
 
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
+            // Verificación de correo: bloquear acceso hasta verificar el email.
+            Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+            if (usuario != null && !Boolean.TRUE.equals(usuario.getEmailVerificado())) {
+                throw ApiException.forbidden("Debes verificar tu correo electrónico antes de iniciar sesión");
+            }
+
             String rol = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
             auditService.registrar("LOGIN", "USUARIO", null, "Inicio de sesión con email " + request.getEmail());
             return jwtUtil.generateToken(userDetails, rol);
@@ -87,6 +111,13 @@ public class AuthService {
                     "Intento de inicio de sesión fallido con email " + request.getEmail());
             logger.warn("Intento de login fallido para email: {}", request.getEmail());
             throw e;
+        } catch (org.springframework.security.authentication.DisabledException e) {
+            // Cuenta pendiente (no verificada) o desactivada por un administrador.
+            Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+            if (usuario != null && !Boolean.TRUE.equals(usuario.getEmailVerificado())) {
+                throw ApiException.forbidden("Debes verificar tu correo electrónico antes de iniciar sesión");
+            }
+            throw ApiException.forbidden("Tu cuenta está inactiva");
         }
     }
 
@@ -121,6 +152,12 @@ public class AuthService {
         String email = jwtUtil.extractUsername(refreshToken);
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> ApiException.unauthorized("Refresh token inválido o expirado"));
+
+        // Cuentas pendientes (sin verificar) o inactivas no pueden renovar tokens.
+        if (!Boolean.TRUE.equals(usuario.getActivo())
+                || !Boolean.TRUE.equals(usuario.getEmailVerificado())) {
+            throw ApiException.unauthorized("Refresh token inválido o expirado");
+        }
 
         RefreshToken registro = refreshTokenRepository.findByToken(refreshToken).orElse(null);
         if (registro == null || registro.getRevocado() || registro.getExpiracion().isBefore(LocalDateTime.now())) {
@@ -178,9 +215,10 @@ public class AuthService {
     }
 
     /**
-     * Inicia la recuperación de contraseña. Como el proyecto aún no envía correos,
+     * Inicia la recuperación de contraseña. En desarrollo (SMTP deshabilitado)
      * devuelve el token generado para que el frontend pueda completar el flujo.
-     * En producción este token debe enviarse por email y NO devolverse en la respuesta.
+     * En producción (SMTP habilitado) el token se envía por correo y NO se
+     * devuelve en la respuesta.
      */
     public String iniciarRecuperacion(String email) {
         boolean existe = usuarioRepository.findByEmail(email).isPresent();
@@ -190,7 +228,17 @@ public class AuthService {
         }
         auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
                 "Se solicitó la recuperación de contraseña para " + email);
-        return passwordResetService.crearToken(email);
+        String token = passwordResetService.crearToken(email);
+        if (mailService.estaHabilitado()) {
+            // Producción: el token viaja por correo y nunca se expone en la respuesta.
+            try {
+                mailService.enviarRecuperacionPassword(email, token);
+            } catch (Exception e) {
+                logger.warn("No se pudo enviar el correo de recuperación a {}: {}", email, e.getMessage());
+            }
+            return null;
+        }
+        return token;
     }
 
     @Transactional

@@ -12,6 +12,7 @@ export interface Usuario {
   telefono?: string;
   direccion?: string;
   activo: boolean;
+  emailVerificado?: boolean;
   fechaCreacion: string;
   fechaActualizacion: string;
   rol: Rol;
@@ -30,7 +31,6 @@ export interface RegisterRequest {
   password: string;
   telefono?: string;
   direccion?: string;
-  rolId?: number;
 }
 
 export interface JwtResponse {
@@ -77,8 +77,14 @@ export interface UsuarioResponse {
   telefono?: string;
   direccion?: string;
   activo: boolean;
+  emailVerificado?: boolean;
   fechaCreacion: string;
   fechaActualizacion: string;
   rol: Rol;
   nombreCompleto?: string;
+}
+
+export interface VerificarEmailRequest {
+  email: string;
+  codigo: string;
 }

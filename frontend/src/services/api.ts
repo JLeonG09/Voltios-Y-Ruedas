@@ -57,6 +57,11 @@ class ApiClient {
         if (status === 401) {
           this.cerrarSesion();
         }
+        // Propaga el mensaje legible del backend (e.g. "Debes verificar tu correo...").
+        const mensaje = (error.response?.data as { mensaje?: string } | undefined)?.mensaje;
+        if (mensaje) {
+          error.message = mensaje;
+        }
         return Promise.reject(error);
       }
     );

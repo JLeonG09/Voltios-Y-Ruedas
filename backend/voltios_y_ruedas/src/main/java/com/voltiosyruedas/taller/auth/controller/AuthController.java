@@ -5,6 +5,7 @@ import com.voltiosyruedas.taller.auth.dto.*;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import com.voltiosyruedas.taller.auth.security.TokenBlacklistService;
 import com.voltiosyruedas.taller.auth.service.AuthService;
+import com.voltiosyruedas.taller.auth.service.EmailVerificationService;
 import com.voltiosyruedas.taller.auth.service.UsuarioService;
 import com.voltiosyruedas.taller.common.exception.ApiException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +33,34 @@ public class AuthController {
     private final UsuarioService usuarioService;
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditService auditService;
+    private final EmailVerificationService emailVerificationService;
+
+    @PostMapping("/verificar-email")
+    @Operation(
+        summary = "Verificar correo electrónico",
+        description = "Confirma la cuenta usando el código de 6 dígitos enviado por correo"
+    )
+    public ResponseEntity<Map<String, String>> verificarEmail(@Valid @RequestBody VerificarEmailRequest request) {
+        emailVerificationService.verificar(request.getEmail(), request.getCodigo());
+        auditService.registrar("VERIFICAR_EMAIL", "USUARIO", null,
+                "Correo verificado para " + request.getEmail());
+        return ResponseEntity.ok(Map.of("mensaje", "Correo verificado correctamente"));
+    }
+
+    @PostMapping("/reenviar-codigo")
+    @Operation(
+        summary = "Reenviar código de verificación",
+        description = "Genera y envía un nuevo código de verificación al email indicado"
+    )
+    public ResponseEntity<Map<String, String>> reenviarCodigo(@Valid @RequestBody RecuperarPasswordRequest request) {
+        String codigo = emailVerificationService.reenviarCodigo(request.getEmail());
+        auditService.registrar("REENVIAR_CODIGO", "USUARIO", null,
+                "Se reenvió el código de verificación a " + request.getEmail());
+        return ResponseEntity.ok(Map.of(
+                "mensaje", "Se envió un nuevo código de verificación",
+                "codigo", codigo
+        ));
+    }
 
     @PostMapping("/login")
     @Operation(
@@ -158,7 +187,9 @@ public class AuthController {
     @PostMapping("/recuperar-password")
     @Operation(
         summary = "Solicitar recuperación de contraseña",
-        description = "Genera un token de recuperación para el email indicado (devuelto en la respuesta en desarrollo)"
+        description = "Genera un token de recuperación para el email indicado. "
+                + "Con SMTP habilitado (producción) el token se envía por correo; "
+                + "en desarrollo se devuelve en la respuesta para facilitar el flujo local."
     )
     public ResponseEntity<?> recuperarPassword(@Valid @RequestBody RecuperarPasswordRequest request) {
         String token = authService.iniciarRecuperacion(request.getEmail());
@@ -272,6 +303,7 @@ public class AuthController {
                 .telefono(usuario.getTelefono())
                 .direccion(usuario.getDireccion())
                 .activo(usuario.getActivo())
+                .emailVerificado(usuario.getEmailVerificado())
                 .fechaCreacion(usuario.getFechaCreacion())
                 .fechaActualizacion(usuario.getFechaActualizacion())
                 .rol(usuario.getRol() != null ? UsuarioResponse.RolResponse.builder()

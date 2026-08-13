@@ -60,7 +60,12 @@ public class UsuarioService implements UserDetailsService {
         if (usuarioRepository.existsByEmail(usuario.getEmail())) {
             throw ApiException.conflict("El email ya está registrado");
         }
+        // El rol llega como referencia {id}; se resuelve a la entidad gestionada.
+        resolverRol(usuario);
         usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
+        if (usuario.getActivo() == null) {
+            usuario.setActivo(true);
+        }
         return usuarioRepository.save(usuario);
     }
 
@@ -71,15 +76,26 @@ public class UsuarioService implements UserDetailsService {
         usuario.setApellido(usuarioActualizado.getApellido());
         usuario.setTelefono(usuarioActualizado.getTelefono());
         usuario.setDireccion(usuarioActualizado.getDireccion());
-        usuario.setActivo(usuarioActualizado.getActivo());
-        
+        // Si el campo no viene en el JSON no se toca (evita nulear activo).
+        if (usuarioActualizado.getActivo() != null) {
+            usuario.setActivo(usuarioActualizado.getActivo());
+        }
         if (usuarioActualizado.getRol() != null) {
-            Rol rol = rolRepository.findById(usuarioActualizado.getRol().getId())
-                    .orElseThrow(() -> ApiException.badRequest("Rol no encontrado"));
-            usuario.setRol(rol);
+            resolverRol(usuarioActualizado);
+            usuario.setRol(usuarioActualizado.getRol());
         }
         
         return usuarioRepository.save(usuario);
+    }
+
+    /** Resuelve el rol por id a una entidad gestionada (rechaza ids inexistentes). */
+    private void resolverRol(Usuario usuario) {
+        if (usuario.getRol() == null || usuario.getRol().getId() == null) {
+            throw ApiException.badRequest("El rol es obligatorio");
+        }
+        Rol rol = rolRepository.findById(usuario.getRol().getId())
+                .orElseThrow(() -> ApiException.badRequest("Rol no encontrado"));
+        usuario.setRol(rol);
     }
 
     @Transactional
@@ -150,6 +166,7 @@ public class UsuarioService implements UserDetailsService {
                 .telefono(usuario.getTelefono())
                 .direccion(usuario.getDireccion())
                 .activo(usuario.getActivo())
+                .emailVerificado(usuario.getEmailVerificado())
                 .fechaCreacion(usuario.getFechaCreacion())
                 .fechaActualizacion(usuario.getFechaActualizacion())
                 .rol(usuario.getRol() != null ? UsuarioResponse.RolResponse.builder()

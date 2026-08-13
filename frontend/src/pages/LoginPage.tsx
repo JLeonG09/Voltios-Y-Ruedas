@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
@@ -14,10 +14,13 @@ import type { JwtResponse } from '../types/auth';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuthStore();
   const { addNotification } = useUIStore();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const emailInicial =
+    (location.state as { email?: string } | null)?.email ?? '';
 
   const {
     register,
@@ -25,6 +28,7 @@ export const LoginPage = () => {
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
+    defaultValues: { email: emailInicial },
   });
 
   const onSubmit = async (data: LoginFormData) => {
@@ -37,6 +41,9 @@ export const LoginPage = () => {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Credenciales inválidas';
       addNotification({ type: 'error', title: 'Error', message });
+      if (/verifica tu correo|verificar tu correo/i.test(message)) {
+        navigate(`/verificar-email?email=${encodeURIComponent(data.email)}`);
+      }
     } finally {
       setLoading(false);
     }

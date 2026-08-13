@@ -2,6 +2,7 @@ package com.voltiosyruedas.taller.reservas.service;
 
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
@@ -20,6 +21,7 @@ import java.util.List;
 public class ReservaService {
 
     private final ReservaRepository reservaRepository;
+    private final MailService mailService;
 
     public Page<Reserva> listar(Pageable pageable, String search, String estado) {
         String termino = (search == null || search.isBlank()) ? null : search.trim();
@@ -53,7 +55,11 @@ public class ReservaService {
                 .estado("PENDIENTE")
                 .build();
 
-        return reservaRepository.save(reserva);
+        Reserva guardada = reservaRepository.save(reserva);
+        // Agenda de diagnóstico: avisa al jefe de taller por correo.
+        mailService.notificarAgendaDiagnostico(cliente,
+                request.getFechaHora() != null ? request.getFechaHora().toString() : "");
+        return guardada;
     }
 
     @Transactional

@@ -12,6 +12,7 @@ import './index.css';
 const LandingPage = lazy(() => import('./pages/LandingPage'));
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() => import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage })));
+const VerificarEmailPage = lazy(() => import('./pages/VerificarEmailPage').then((m) => ({ default: m.VerificarEmailPage })));
 const RecuperarPasswordPage = lazy(() => import('./pages/RecuperarPasswordPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })));
 const ReservasPage = lazy(() => import('./pages/ReservasPage').then((m) => ({ default: m.ReservasPage })));
@@ -67,6 +68,7 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/verificar-email" element={<VerificarEmailPage />} />
             <Route path="/recuperar-password" element={<RecuperarPasswordPage />} />
           </Route>
 
