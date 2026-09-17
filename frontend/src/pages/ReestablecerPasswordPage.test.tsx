@@ -40,7 +40,8 @@ describe('ReestablecerPasswordPage', () => {
 
   it('muestra el formulario cuando hay token', () => {
     renderPage('abc123');
-    expect(screen.getByText('Restablecer contraseña')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Restablecer contraseña' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restablecer contraseña' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nueva contraseña')).toBeInTheDocument();
     expect(screen.getByLabelText('Confirmar contraseña')).toBeInTheDocument();
   });
