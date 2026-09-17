@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { loginSchema, registerSchema, recuperarPasswordSchema } from './validation';
+import {
+  loginSchema,
+  registerSchema,
+  recuperarPasswordSchema,
+  reestablecerPasswordSchema,
+} from './validation';
 
 describe('loginSchema', () => {
   it('acepta credenciales válidas', () => {
@@ -17,9 +22,14 @@ describe('loginSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rechaza contraseña corta', () => {
-    const result = loginSchema.safeParse({ email: 'juan@example.com', password: '123' });
+  it('rechaza contraseña vacía', () => {
+    const result = loginSchema.safeParse({ email: 'juan@example.com', password: '' });
     expect(result.success).toBe(false);
+  });
+
+  it('acepta contraseña no vacía sin exigir longitud mínima (el login no aplica la regla de 8)', () => {
+    const result = loginSchema.safeParse({ email: 'juan@example.com', password: '123' });
+    expect(result.success).toBe(true);
   });
 });
 
@@ -115,6 +125,16 @@ describe('registerSchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('rechaza contraseña de menos de 8 caracteres', () => {
+    const result = registerSchema.safeParse({
+      nombre: 'Juan',
+      apellido: 'Pérez',
+      email: 'juan@example.com',
+      password: '1234567',
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('recuperarPasswordSchema', () => {
@@ -124,5 +144,39 @@ describe('recuperarPasswordSchema', () => {
 
   it('rechaza email inválido', () => {
     expect(recuperarPasswordSchema.safeParse({ email: 'mal' }).success).toBe(false);
+  });
+});
+
+describe('reestablecerPasswordSchema', () => {
+  const base = {
+    token: 'abc123',
+    nuevaPassword: 'nuevaPass',
+    confirmarPassword: 'nuevaPass',
+  };
+
+  it('acepta token y contraseña de al menos 8 caracteres coincidentes', () => {
+    expect(reestablecerPasswordSchema.safeParse(base).success).toBe(true);
+  });
+
+  it('rechaza contraseña de menos de 8 caracteres', () => {
+    const result = reestablecerPasswordSchema.safeParse({
+      ...base,
+      nuevaPassword: '1234567',
+      confirmarPassword: '1234567',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rechaza contraseñas que no coinciden', () => {
+    const result = reestablecerPasswordSchema.safeParse({
+      ...base,
+      confirmarPassword: 'otraPass1',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rechaza token vacío', () => {
+    const result = reestablecerPasswordSchema.safeParse({ ...base, token: '' });
+    expect(result.success).toBe(false);
   });
 });
