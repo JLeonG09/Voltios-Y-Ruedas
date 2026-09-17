@@ -41,7 +41,10 @@ export const LoginPage = () => {
       addNotification({ type: 'success', title: 'Bienvenido', message: 'Has iniciado sesión correctamente' });
       navigate(rutaInicioPorRol(response.rol), { replace: true });
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Credenciales inválidas';
+      const message =
+        error instanceof Error && error.message.trim().length > 0
+          ? error.message
+          : 'No se pudo iniciar sesión. Revisá email y contraseña.';
       setErrorFormulario(message);
       if (/verifica tu correo|verificar tu correo/i.test(message)) {
         navigate(`/verificar-email?email=${encodeURIComponent(data.email)}`);

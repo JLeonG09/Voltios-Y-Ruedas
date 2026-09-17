@@ -1,17 +1,62 @@
-import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosRequestConfig } from 'axios';
+﻿import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosRequestConfig } from 'axios';
 import { useAuthStore } from '../store/authStore';
 import type { JwtResponse } from '../types';
 
-// En producción/Docker, VITE_API_URL se deja vacío a propósito para que las
+// En producciÃ³n/Docker, VITE_API_URL se deja vacÃ­o a propÃ³sito para que las
 // llamadas sean relativas (mismo origen) y nginx haga de proxy reverso.
-// Si la variable existe pero está vacía o solo tiene espacios, también
-// caemos al modo relativo. Si hay un valor explícito, lo respetamos
-// (útil para entornos donde el frontend no vive detrás del mismo proxy).
+// Si la variable existe pero estÃ¡ vacÃ­a o solo tiene espacios, tambiÃ©n
+// caemos al modo relativo. Si hay un valor explÃ­cito, lo respetamos
+// (Ãºtil para entornos donde el frontend no vive detrÃ¡s del mismo proxy).
 const envApiUrl = import.meta.env.VITE_API_URL?.trim();
 const API_BASE_URL = envApiUrl && envApiUrl.length > 0 ? envApiUrl : '';
 
-// Comparte la renovación en curso para no lanzar varias peticiones de refresh
-// a la vez cuando varias llamadas fallan con 401 de forma simultánea.
+/** Rutas de auth pÃºblicas: un 401 aquÃ­ NO es "sesiÃ³n expirada". */
+const RUTAS_AUTH_PUBLICAS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/verificar-email',
+  '/api/auth/reenviar-codigo',
+  '/api/auth/recuperar-password',
+  '/api/auth/reestablecer-password',
+] as const;
+
+export const esRutaAuthPublica = (url: string): boolean =>
+  RUTAS_AUTH_PUBLICAS.some((ruta) => url.includes(ruta));
+
+const MENSAJE_SIN_CONEXION =
+  'No se pudo conectar con el servidor. RevisÃ¡ tu conexiÃ³n o intentÃ¡ mÃ¡s tarde.';
+const MENSAJE_AUTH_NO_DISPONIBLE =
+  'El servidor de autenticaciÃ³n no estÃ¡ disponible. Si estÃ¡s en Vercel, falta configurar VITE_API_URL.';
+
+/**
+ * Mensaje humano para errores de API (login y resto).
+ * No distingue "usuario no existe" vs "contraseÃ±a incorrecta": usa el del backend.
+ */
+export const resolverMensajeErrorApi = (error: AxiosError): string => {
+  const status = error.response?.status;
+  const url = error.config?.url ?? '';
+  const mensajeBackend = (error.response?.data as { mensaje?: string } | undefined)?.mensaje;
+
+  if (mensajeBackend && mensajeBackend.trim().length > 0) {
+    return mensajeBackend;
+  }
+
+  if (!error.response) {
+    return MENSAJE_SIN_CONEXION;
+  }
+
+  if (
+    (status === 404 || status === 405) &&
+    (esRutaAuthPublica(url) || url.includes('/api/auth/'))
+  ) {
+    return MENSAJE_AUTH_NO_DISPONIBLE;
+  }
+
+  return error.message || 'OcurriÃ³ un error inesperado';
+};
+
+// Comparte la renovaciÃ³n en curso para no lanzar varias peticiones de refresh
+// a la vez cuando varias llamadas fallan con 401 de forma simultÃ¡nea.
 let refreshPromise: Promise<string | null> | null = null;
 
 class ApiClient {
@@ -22,6 +67,10 @@ class ApiClient {
       baseURL: API_BASE_URL,
       headers: {
         'Content-Type': 'application/json',
+        // ngrok free muestra un interstitial HTML sin este header; rompe el login desde Vercel.
+        ...(API_BASE_URL.includes('ngrok')
+          ? { 'ngrok-skip-browser-warning': 'true' }
+          : {}),
       },
       timeout: 10000,
     });
@@ -43,8 +92,16 @@ class ApiClient {
         const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
         const status = error.response?.status;
         const url = original?.url ?? '';
+        const authPublica = esRutaAuthPublica(url);
 
-        if (status === 401 && original && !original._retry && !url.includes('/api/auth/refresh')) {
+        // Solo renovar sesiÃ³n en 401 de rutas protegidas (no login/register/â€¦).
+        if (
+          status === 401 &&
+          original &&
+          !original._retry &&
+          !authPublica &&
+          !url.includes('/api/auth/refresh')
+        ) {
           original._retry = true;
           const newToken = await this.renovarToken();
           if (newToken) {
@@ -54,14 +111,12 @@ class ApiClient {
           }
         }
 
-        if (status === 401) {
+        // Un 401 en login/register no debe cerrar sesiÃ³n ni redirigir.
+        if (status === 401 && !authPublica) {
           this.cerrarSesion();
         }
-        // Propaga el mensaje legible del backend (e.g. "Debes verificar tu correo...").
-        const mensaje = (error.response?.data as { mensaje?: string } | undefined)?.mensaje;
-        if (mensaje) {
-          error.message = mensaje;
-        }
+
+        error.message = resolverMensajeErrorApi(error);
         return Promise.reject(error);
       }
     );

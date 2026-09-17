@@ -77,6 +77,32 @@ describe('LoginPage', () => {
     });
     expect(screen.queryByText('Destino staff')).not.toBeInTheDocument();
     expect(screen.queryByText('Destino cliente')).not.toBeInTheDocument();
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(useAuthStore.getState().token).toBeNull();
+  });
+
+  it('muestra fallback genérico si el error no trae mensaje', async () => {
+    vi.mocked(authService.login).mockRejectedValue(new Error(''));
+    renderLogin();
+    enviarLogin();
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'No se pudo iniciar sesión. Revisá email y contraseña.',
+      );
+    });
+  });
+
+  it('muestra error de red sin inventar usuario inexistente', async () => {
+    vi.mocked(authService.login).mockRejectedValue(
+      new Error('No se pudo conectar con el servidor. Revisá tu conexión o intentá más tarde.'),
+    );
+    renderLogin();
+    enviarLogin();
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/No se pudo conectar con el servidor/);
+    });
+    expect(screen.queryByText(/usuario no existe/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/contraseña incorrecta/i)).not.toBeInTheDocument();
   });
 
   it('MECANICO entra a /dashboard', async () => {
