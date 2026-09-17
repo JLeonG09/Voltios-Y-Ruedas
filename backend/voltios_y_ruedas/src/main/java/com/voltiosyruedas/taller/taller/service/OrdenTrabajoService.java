@@ -2,6 +2,8 @@ package com.voltiosyruedas.taller.taller.service;
 
 import com.voltiosyruedas.taller.auth.entity.Usuario;
 import org.springframework.security.access.AccessDeniedException;
+import com.voltiosyruedas.taller.common.exception.ApiException;
+import com.voltiosyruedas.taller.common.transaction.AfterCommit;
 import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.entity.Reserva;
 import com.voltiosyruedas.taller.taller.dto.BitacoraResponse;
@@ -27,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -34,6 +37,22 @@ import java.util.Set;
 public class OrdenTrabajoService {
 
     private static final Set<String> ROLES_STAFF = Set.of("ADMIN", "JEFE_TALLER", "MECANICO");
+
+    /**
+     * Transiciones de estado válidas para una orden de trabajo.
+     * Secuencia canónica: RECIEN_INGROSADO → POR_INGRESAR → TRABAJANDO → TERMINADO → ENTREGADO.
+     * Se permite saltar etapas intermedias avanzando, pero no retroceder.
+     * Desde ENTREGADO no se puede cambiar a nada.
+     */
+    private static final Map<String, Set<String>> TRANSICIONES_VALIDAS = Map.of(
+            "RECIEN_INGROSADO", Set.of("POR_INGRESAR", "TRABAJANDO", "TERMINADO", "ENTREGADO"),
+            "POR_INGRESAR", Set.of("TRABAJANDO", "TERMINADO", "ENTREGADO"),
+            "TRABAJANDO", Set.of("TERMINADO", "ENTREGADO"),
+            "TERMINADO", Set.of("ENTREGADO"),
+            "ENTREGADO", Set.of()
+    );
+
+    private static final Set<String> ESTADOS_VALIDOS = TRANSICIONES_VALIDAS.keySet();
 
     private final OrdenTrabajoRepository ordenTrabajoRepository;
     private final ReservaRepository reservaRepository;
@@ -61,12 +80,12 @@ public class OrdenTrabajoService {
 
     public OrdenTrabajo obtenerPorId(Long id) {
         return ordenTrabajoRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Orden de trabajo no encontrada con ID: " + id));
+                .orElseThrow(() -> ApiException.notFound("Orden de trabajo no encontrada"));
     }
 
     public OrdenTrabajo obtenerPorNumeroOrden(String numeroOrden) {
         return ordenTrabajoRepository.findByNumeroOrden(numeroOrden)
-                .orElseThrow(() -> new RuntimeException("Orden de trabajo no encontrada con numero: " + numeroOrden));
+                .orElseThrow(() -> ApiException.notFound("Orden de trabajo no encontrada"));
     }
 
     @Transactional
@@ -78,7 +97,7 @@ public class OrdenTrabajoService {
             throw new AccessDeniedException("Solo el personal del taller puede crear ordenes de trabajo");
         }
         if (ordenTrabajoRepository.findByNumeroOrden(request.getNumeroOrden()).isPresent()) {
-            throw new RuntimeException("Ya existe una orden con ese numero");
+            throw ApiException.conflict("Ya existe una orden con ese numero");
         }
         Usuario cliente = usuarioService.obtenerPorId(request.getClienteId());
         Usuario mecanico = null;
@@ -88,7 +107,7 @@ public class OrdenTrabajoService {
         Reserva reserva = null;
         if (request.getReservaId() != null) {
             reserva = reservaRepository.findById(request.getReservaId())
-                    .orElseThrow(() -> new RuntimeException("Reserva no encontrada"));
+                    .orElseThrow(() -> ApiException.notFound("Reserva no encontrada"));
         }
         OrdenTrabajo orden = OrdenTrabajo.builder()
                 .reserva(reserva)
@@ -139,6 +158,7 @@ public class OrdenTrabajoService {
             orden.setCostoRepuestos(request.getCostoRepuestos());
         }
         if (request.getEstado() != null && !request.getEstado().equals(estadoAnterior)) {
+            validarTransicionEstado(estadoAnterior, request.getEstado());
             orden.setEstado(request.getEstado());
             if ("ENTREGADO".equals(request.getEstado())) {
                 orden.setFechaEntregaReal(LocalDateTime.now());
@@ -185,8 +205,20 @@ public class OrdenTrabajoService {
     }
 
     private void validarTransicionEstado(String actual, String nuevo) {
-        if ("ENTREGADO".equals(actual) && !"ENTREGADO".equals(nuevo)) {
-            throw new RuntimeException("No se puede cambiar el estado de una orden ya entregada");
+        if (!ESTADOS_VALIDOS.contains(nuevo)) {
+            throw ApiException.badRequest("Estado inválido: " + nuevo);
+        }
+        if (actual == null || actual.equals(nuevo)) {
+            return;
+        }
+        if (!ESTADOS_VALIDOS.contains(actual)) {
+            throw ApiException.badRequest("Estado actual inválido: " + actual);
+        }
+        Set<String> permitidos = TRANSICIONES_VALIDAS.getOrDefault(actual, Set.of());
+        if (!permitidos.contains(nuevo)) {
+            throw ApiException.badRequest(
+                    "Transición de estado inválida: no se puede pasar de "
+                            + estadoLabel(actual) + " a " + estadoLabel(nuevo));
         }
     }
 
@@ -197,9 +229,9 @@ public class OrdenTrabajoService {
         }
         OrdenTrabajo orden = obtenerPorId(ordenId);
         Inventario inventario = inventarioRepository.findById(request.getInventarioId())
-                .orElseThrow(() -> new RuntimeException("Repuesto no encontrado"));
+                .orElseThrow(() -> ApiException.notFound("Repuesto no encontrado"));
         if (inventario.getStockActual() < request.getCantidad()) {
-            throw new RuntimeException("Stock insuficiente para el repuesto: " + inventario.getNombre());
+            throw ApiException.badRequest("Stock insuficiente para el repuesto: " + inventario.getNombre());
         }
         var existenteOpt = ordenTrabajoInventarioRepository
                 .findByOrdenTrabajoAndInventario(orden, inventario);
@@ -233,11 +265,11 @@ public class OrdenTrabajoService {
         }
         OrdenTrabajo orden = obtenerPorId(ordenId);
         Inventario inventario = inventarioRepository.findById(inventarioId)
-                .orElseThrow(() -> new RuntimeException("Repuesto no encontrado"));
+                .orElseThrow(() -> ApiException.notFound("Repuesto no encontrado"));
         var itemOpt = ordenTrabajoInventarioRepository
                 .findByOrdenTrabajoAndInventario(orden, inventario);
         if (itemOpt.isEmpty()) {
-            throw new RuntimeException("El repuesto no esta en esta orden");
+            throw ApiException.badRequest("El repuesto no esta en esta orden");
         }
         OrdenTrabajoInventario item = itemOpt.get();
         inventario.setStockActual(inventario.getStockActual() + item.getCantidad());
@@ -275,15 +307,15 @@ public class OrdenTrabajoService {
         bitacoraRepository.save(bitacora);
     }
 
-    /** Emails por cambio de estado de orden de trabajo. */
+    /** Emails por cambio de estado de orden de trabajo (fuera de la TX). */
     private void notificarCambioEstado(OrdenTrabajo orden, String estadoAnterior, String estadoNuevo) {
-        if ("TRABAJANDO".equals(estadoNuevo)) {
-            // Vehículo en trabajo: aviso al jefe de taller y al cliente.
-            mailService.notificarTrabajoVehiculo(orden);
-        } else {
-            // Resto de cambios: notifica al cliente.
-            mailService.notificarCambioEstadoOrden(orden, estadoAnterior, estadoNuevo);
-        }
+        AfterCommit.run(() -> {
+            if ("TRABAJANDO".equals(estadoNuevo)) {
+                mailService.notificarTrabajoVehiculo(orden);
+            } else {
+                mailService.notificarCambioEstadoOrden(orden, estadoAnterior, estadoNuevo);
+            }
+        });
     }
 
     public List<Bitacora> obtenerBitacora(Long ordenId) {

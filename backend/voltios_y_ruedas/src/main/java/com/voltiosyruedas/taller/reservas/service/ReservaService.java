@@ -2,6 +2,8 @@ package com.voltiosyruedas.taller.reservas.service;
 
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.common.exception.ApiException;
+import com.voltiosyruedas.taller.common.transaction.AfterCommit;
 import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
@@ -42,7 +44,7 @@ public class ReservaService {
 
     public Reserva obtenerPorId(Long id) {
         return reservaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Reserva no encontrada con ID: " + id));
+                .orElseThrow(() -> ApiException.notFound("Reserva no encontrada"));
     }
 
     @Transactional
@@ -56,9 +58,8 @@ public class ReservaService {
                 .build();
 
         Reserva guardada = reservaRepository.save(reserva);
-        // Agenda de diagnóstico: avisa al jefe de taller por correo.
-        mailService.notificarAgendaDiagnostico(cliente,
-                request.getFechaHora() != null ? request.getFechaHora().toString() : "");
+        String fechaTexto = request.getFechaHora() != null ? request.getFechaHora().toString() : "";
+        AfterCommit.run(() -> mailService.notificarAgendaDiagnostico(cliente, fechaTexto));
         return guardada;
     }
 

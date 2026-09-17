@@ -28,25 +28,17 @@ export const usuarioService = {
   },
 
   crear: async (data: Partial<Usuario> & { password: string; rolId: number }): Promise<Usuario> => {
-    const { rolId, ...rest } = data;
-    const response = await api.post<Usuario>('/api/usuarios', { ...rest, rol: { id: rolId } });
+    const response = await api.post<Usuario>('/api/usuarios', data);
     return response.data;
   },
 
   actualizar: async (id: number, data: Partial<Usuario> & { rolId?: number }): Promise<Usuario> => {
-    const { rolId, ...rest } = data;
-    const payload: Record<string, unknown> = { ...rest };
-    if (rolId) {
-      payload.rol = { id: rolId };
-    }
-    const response = await api.put<Usuario>(`/api/usuarios/${id}`, payload);
+    const response = await api.put<Usuario>(`/api/usuarios/${id}`, data);
     return response.data;
   },
 
   cambiarPassword: async (id: number, passwordActual: string, passwordNuevo: string): Promise<void> => {
-    await api.put(`/api/usuarios/${id}/password`, {}, {
-      params: { passwordActual, passwordNuevo },
-    });
+    await api.put(`/api/usuarios/${id}/password`, { passwordActual, passwordNuevo });
   },
 
   eliminar: async (id: number): Promise<void> => {

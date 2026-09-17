@@ -22,7 +22,8 @@ public class RefreshToken {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario usuario;
 
-    @Column(nullable = false, unique = true, length = 500)
+    /** SHA-256 hex del JWT de refresh; nunca el token en claro. */
+    @Column(nullable = false, unique = true, length = 64)
     private String token;
 
     @Column(nullable = false)

@@ -1,23 +1,25 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Calendar, ClipboardList, Package, Users, Settings,
-  Car, History, Wrench, ChevronLeft, ChevronRight,
+  Car, History, Wrench, ChevronRight,
 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
+import { ROLES, ROLES_CLIENTE, ROLES_GESTION, ROLES_STAFF, rolPermitido } from '../../utils/roles';
+import type { NombreRol } from '../../types';
 
-const staffNav = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ['ADMIN', 'JEFE_TALLER', 'MECANICO'] },
-  { name: 'Reservas', href: '/reservas', icon: Calendar, roles: ['ADMIN', 'JEFE_TALLER', 'MECANICO'] },
-  { name: 'Ordenes', href: '/ordenes', icon: ClipboardList, roles: ['ADMIN', 'JEFE_TALLER', 'MECANICO'] },
-  { name: 'Inventario', href: '/inventario', icon: Package, roles: ['ADMIN', 'JEFE_TALLER', 'MECANICO'] },
-  { name: 'Usuarios', href: '/usuarios', icon: Users, roles: ['ADMIN', 'JEFE_TALLER'] },
-  { name: 'Configuracion', href: '/configuracion', icon: Settings, roles: ['ADMIN', 'JEFE_TALLER'] },
+const staffNav: { name: string; href: string; icon: typeof LayoutDashboard; roles: readonly NombreRol[] }[] = [
+  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ROLES_STAFF },
+  { name: 'Reservas', href: '/reservas', icon: Calendar, roles: ROLES_STAFF },
+  { name: 'Ordenes', href: '/ordenes', icon: ClipboardList, roles: ROLES_STAFF },
+  { name: 'Inventario', href: '/inventario', icon: Package, roles: ROLES_STAFF },
+  { name: 'Usuarios', href: '/usuarios', icon: Users, roles: ROLES_GESTION },
+  { name: 'Configuracion', href: '/configuracion', icon: Settings, roles: ROLES_GESTION },
 ];
 
-const clienteNav = [
-  { name: 'Mi vehiculo', href: '/mi-vehiculo', icon: Car, roles: ['CLIENTE'] },
-  { name: 'Mi historial', href: '/mi-historial', icon: History, roles: ['CLIENTE'] },
-  { name: 'Mis reservas', href: '/mis-reservas', icon: Calendar, roles: ['CLIENTE'] },
+const clienteNav: { name: string; href: string; icon: typeof LayoutDashboard; roles: readonly NombreRol[] }[] = [
+  { name: 'Mi vehiculo', href: '/mi-vehiculo', icon: Car, roles: ROLES_CLIENTE },
+  { name: 'Mi historial', href: '/mi-historial', icon: History, roles: ROLES_CLIENTE },
+  { name: 'Mis reservas', href: '/mis-reservas', icon: Calendar, roles: ROLES_CLIENTE },
 ];
 
 interface SidebarProps {
@@ -27,8 +29,8 @@ interface SidebarProps {
 export const Sidebar = ({ userRole }: SidebarProps) => {
   const { sidebarOpen, toggleSidebar } = useUIStore();
   const location = useLocation();
-  const items = userRole === 'CLIENTE' ? clienteNav : staffNav;
-  const filteredNavigation = items.filter((item) => item.roles.includes(userRole));
+  const items = userRole === ROLES.CLIENTE ? clienteNav : staffNav;
+  const filteredNavigation = items.filter((item) => rolPermitido(userRole, item.roles));
 
   return (
     <>

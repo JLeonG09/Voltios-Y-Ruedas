@@ -1,6 +1,8 @@
 package com.voltiosyruedas.taller.notificaciones.controller;
 
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.security.SecurityUtils;
+import com.voltiosyruedas.taller.notificaciones.dto.NotificacionResponse;
 import com.voltiosyruedas.taller.notificaciones.entity.Notificacion;
 import com.voltiosyruedas.taller.notificaciones.service.NotificacionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,30 +25,45 @@ public class NotificacionController {
 
     @GetMapping
     @Operation(summary = "Listar notificaciones del usuario", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<List<Notificacion>> listar(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(notificacionService.listarPorUsuario(usuario.getId()));
+    public ResponseEntity<List<NotificacionResponse>> listar(Authentication authentication) {
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
+        List<NotificacionResponse> respuesta = notificacionService.listarPorUsuario(usuario.getId())
+                .stream()
+                .map(NotificacionController::toResponse)
+                .toList();
+        return ResponseEntity.ok(respuesta);
     }
 
     @GetMapping("/no-leidas")
     @Operation(summary = "Contar notificaciones no leídas", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Long> contarNoLeidas(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         return ResponseEntity.ok(notificacionService.contarNoLeidas(usuario.getId()));
     }
 
     @PutMapping("/{id}/leida")
     @Operation(summary = "Marcar una notificación como leída", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<Notificacion> marcarLeida(@PathVariable Long id, Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
-        return ResponseEntity.ok(notificacionService.marcarLeida(id, usuario.getId()));
+    public ResponseEntity<NotificacionResponse> marcarLeida(@PathVariable Long id, Authentication authentication) {
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
+        return ResponseEntity.ok(toResponse(notificacionService.marcarLeida(id, usuario.getId())));
     }
 
     @PutMapping("/leer-todas")
     @Operation(summary = "Marcar todas las notificaciones como leídas", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> marcarTodasLeidas(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         notificacionService.marcarTodasLeidas(usuario.getId());
         return ResponseEntity.ok().build();
+    }
+
+    private static NotificacionResponse toResponse(Notificacion n) {
+        return NotificacionResponse.builder()
+                .id(n.getId())
+                .titulo(n.getTitulo())
+                .mensaje(n.getMensaje())
+                .tipo(n.getTipo())
+                .leida(n.getLeida())
+                .fecha(n.getFecha())
+                .build();
     }
 }

@@ -1,18 +1,27 @@
+# compose.yml — perfil recomendado / prod-like
+# Nginx (frontend:80) es la puerta pública. Postgres, Redis y el backend
+# solo viven en la red interna de Compose (sin publicar al host).
+#
+# Dev local (acceso directo a DB/Redis/API):
+#   Añadir temporalmente ports bajo el servicio, p. ej. "5432:5432", "6379:6379", "8080:8080".
+#   O usar `docker compose exec` / herramientas en la misma red.
+#
+# Credenciales: obligatorias vía .env (sin defaults débiles). Ver .env.example.
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: voltios_ruedas_db
     environment:
       POSTGRES_DB: taller_db
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
-    ports:
-      - "5432:5432"
+      POSTGRES_USER: ${POSTGRES_USER:?Definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+    # Sin ports al host (prod). Red interna: hostname "postgres".
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d taller_db"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d taller_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -20,8 +29,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: voltios_ruedas_redis
-    ports:
-      - "6379:6379"
+    # Sin ports al host (prod). Red interna: hostname "redis".
     volumes:
       - redisdata:/data
     restart: always
@@ -38,16 +46,19 @@ services:
     container_name: voltios_ruedas_app
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      POSTGRES_USER: ${POSTGRES_USER:?Definir POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Definir POSTGRES_PASSWORD en .env}
+      JWT_SECRET: ${JWT_SECRET:?Definir JWT_SECRET en .env}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-900000}
+      JWT_REFRESH_EXPIRATION: ${JWT_REFRESH_EXPIRATION:-43200000}
       TZ: ${TZ:-America/Costa_Rica}
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/taller_db
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
+      # Detrás de nginx del compose: confiar en X-Forwarded-For del proxy.
+      TRUST_FORWARDED_HEADERS: ${TRUST_FORWARDED_HEADERS:-true}
       MAIL_ENABLED: ${MAIL_ENABLED:-false}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
@@ -55,8 +66,8 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-${MAIL_USERNAME:-no-reply@voltiosyruedas.com}}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
-    ports:
-      - "8080:8080"
+    # Sin 8080 al host: el tráfico público entra por nginx (frontend:80 → app:8080).
+    # Healthchecks usan la red interna (localhost dentro del contenedor).
     depends_on:
       postgres:
         condition: service_healthy

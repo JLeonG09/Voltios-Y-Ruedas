@@ -1,4 +1,4 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, Fragment, ReactNode } from 'react';
 
 interface Props {
   children: ReactNode;
@@ -8,18 +8,23 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  intento: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = { hasError: false, error: null };
+  public state: State = { hasError: false, error: null, intento: 0 };
 
-  public static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
+    console.error('Error capturado por ErrorBoundary:', error, errorInfo);
   }
+
+  private reintentar = () => {
+    this.setState((s) => ({ hasError: false, error: null, intento: s.intento + 1 }));
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -36,14 +41,24 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Algo salió mal</h2>
             <p className="text-surface-600 dark:text-surface-400 mb-6">
-              Ha ocurrido un error inesperado. Por favor, recarga la página o intenta más tarde.
+              Ha ocurrido un error inesperado. Puedes reintentar o recargar la página.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              className="px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors"
-            >
-              Recargar página
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <button
+                type="button"
+                onClick={this.reintentar}
+                className="px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors"
+              >
+                Reintentar
+              </button>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-surface-100 text-surface-700 rounded-xl hover:bg-surface-200 dark:bg-surface-800 dark:text-surface-200 dark:hover:bg-surface-700 transition-colors"
+              >
+                Recargar página
+              </button>
+            </div>
             {import.meta.env.DEV && this.state.error && (
               <details className="mt-6 text-left p-4 bg-surface-100 dark:bg-surface-800 rounded-xl text-xs">
                 <summary className="cursor-pointer text-surface-500 mb-2">Detalles del error (solo desarrollo)</summary>
@@ -56,6 +71,6 @@ export class ErrorBoundary extends Component<Props, State> {
         </div>
       );
     }
-    return this.props.children;
+    return <Fragment key={this.state.intento}>{this.props.children}</Fragment>;
   }
 }

@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.auditoria.service;
 
+import com.voltiosyruedas.taller.auditoria.dto.AuditoriaResponse;
 import com.voltiosyruedas.taller.auditoria.entity.AuditoriaLog;
 import com.voltiosyruedas.taller.auditoria.repository.AuditoriaRepository;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
@@ -7,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -24,9 +26,26 @@ public class AuditService {
 
     private final AuditoriaRepository auditoriaRepository;
 
+    @Value("${app.security.trust-forwarded-headers:false}")
+    private boolean trustForwardedHeaders;
+
     @Transactional(readOnly = true)
     public Page<AuditoriaLog> listar(Pageable pageable) {
         return auditoriaRepository.findAll(pageable);
+    }
+
+    public AuditoriaResponse toResponse(AuditoriaLog log) {
+        return AuditoriaResponse.builder()
+                .id(log.getId())
+                .usuarioId(log.getUsuarioId())
+                .usuarioEmail(log.getUsuarioEmail())
+                .accion(log.getAccion())
+                .entidad(log.getEntidad())
+                .entidadId(log.getEntidadId())
+                .detalle(log.getDetalle())
+                .ip(log.getIp())
+                .fecha(log.getFecha())
+                .build();
     }
 
     @Transactional
@@ -50,7 +69,7 @@ public class AuditService {
 
             auditoriaRepository.save(log);
         } catch (Exception e) {
-            logger.warn("No se pudo registrar la auditoría para la acción {}: {}", accion, e.getMessage());
+            logger.warn("No se pudo registrar la auditoría para la acción {}", accion);
         }
     }
 
@@ -59,14 +78,16 @@ public class AuditService {
             ServletRequestAttributes attrs = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attrs != null) {
                 HttpServletRequest request = attrs.getRequest();
-                String xff = request.getHeader("X-Forwarded-For");
-                if (xff != null && !xff.isBlank()) {
-                    return xff.split(",")[0].trim();
+                if (trustForwardedHeaders) {
+                    String xff = request.getHeader("X-Forwarded-For");
+                    if (xff != null && !xff.isBlank()) {
+                        return xff.split(",")[0].trim();
+                    }
                 }
                 return request.getRemoteAddr();
             }
         } catch (Exception e) {
-            logger.warn("No se pudo obtener la IP del request: {}", e.getMessage());
+            logger.warn("No se pudo obtener la IP del request");
         }
         return null;
     }

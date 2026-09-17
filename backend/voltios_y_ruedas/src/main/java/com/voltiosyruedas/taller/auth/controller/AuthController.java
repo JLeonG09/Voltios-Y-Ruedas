@@ -34,6 +34,7 @@ public class AuthController {
     private final TokenBlacklistService tokenBlacklistService;
     private final AuditService auditService;
     private final EmailVerificationService emailVerificationService;
+    private final com.voltiosyruedas.taller.notificaciones.service.MailService mailService;
 
     @PostMapping("/verificar-email")
     @Operation(
@@ -55,11 +56,13 @@ public class AuthController {
     public ResponseEntity<Map<String, String>> reenviarCodigo(@Valid @RequestBody RecuperarPasswordRequest request) {
         String codigo = emailVerificationService.reenviarCodigo(request.getEmail());
         auditService.registrar("REENVIAR_CODIGO", "USUARIO", null,
-                "Se reenvió el código de verificación a " + request.getEmail());
-        return ResponseEntity.ok(Map.of(
-                "mensaje", "Se envió un nuevo código de verificación",
-                "codigo", codigo
-        ));
+                "Intento de reenvío de código de verificación");
+        Map<String, String> respuesta = new java.util.HashMap<>();
+        respuesta.put("mensaje", "Si el correo está registrado y no está verificado, se envió un nuevo código de verificación");
+        if (codigo != null && !mailService.estaHabilitado()) {
+            respuesta.put("codigo", codigo);
+        }
+        return ResponseEntity.ok(respuesta);
     }
 
     @PostMapping("/login")

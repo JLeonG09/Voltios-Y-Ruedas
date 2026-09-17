@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.auth.dto;
 
+import com.voltiosyruedas.taller.common.validation.ValidPassword;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,8 +16,9 @@ public class PasswordResetRequest {
     @NotBlank(message = "El token es obligatorio")
     private String token;
 
-    @Schema(description = "Nueva contraseña", example = "nuevaPassword123", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Nueva contraseña (8+ chars, 1 mayúscula, 1 minúscula, 1 número, 1 símbolo)", example = "NuevaPassword1!", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "La nueva contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
+    @Size(max = 255, message = "La contraseña no puede exceder 255 caracteres")
+    @ValidPassword
     private String nuevaPassword;
 }

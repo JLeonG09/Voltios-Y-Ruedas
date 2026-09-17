@@ -186,7 +186,7 @@ class OrdenTrabajoControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
+    @WithMockUsuario(username = "admin@taller.com", rol = "ADMIN")
     void obtenerPorId_existente_deberiaRetornarOrden() throws Exception {
         when(ordenTrabajoService.obtenerPorId(1L)).thenReturn(orden);
 
@@ -199,7 +199,7 @@ class OrdenTrabajoControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
+    @WithMockUsuario(username = "admin@taller.com", rol = "ADMIN")
     void obtenerPorNumeroOrden_existente_deberiaRetornarOrden() throws Exception {
         when(ordenTrabajoService.obtenerPorNumeroOrden("OT-001")).thenReturn(orden);
 
@@ -335,7 +335,7 @@ class OrdenTrabajoControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
+    @WithMockUsuario(username = "admin@taller.com", rol = "ADMIN")
     void obtenerBitacora_deberiaRetornarLista() throws Exception {
         Bitacora bitacora = Bitacora.builder()
                 .id(1L)
@@ -345,6 +345,7 @@ class OrdenTrabajoControllerTest {
                 .estadoNuevo("TRABAJANDO")
                 .build();
 
+        when(ordenTrabajoService.obtenerPorId(1L)).thenReturn(orden);
         when(ordenTrabajoService.obtenerBitacora(1L)).thenReturn(List.of(bitacora));
 
         mockMvc.perform(get("/api/ordenes/1/bitacora")

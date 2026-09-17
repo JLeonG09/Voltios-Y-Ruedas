@@ -2,6 +2,7 @@ package com.voltiosyruedas.taller.inventario.controller;
 
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.inventario.dto.InventarioRequest;
+import com.voltiosyruedas.taller.inventario.dto.InventarioResponse;
 import com.voltiosyruedas.taller.inventario.entity.Inventario;
 import com.voltiosyruedas.taller.inventario.service.InventarioService;
 import com.voltiosyruedas.taller.notificaciones.service.NotificacionService;
@@ -25,63 +26,69 @@ public class InventarioController {
     private final AuditService auditService;
 
     @GetMapping
-    public ResponseEntity<Page<Inventario>> listar(Pageable pageable) {
-        return ResponseEntity.ok(inventarioService.listar(pageable));
+    public ResponseEntity<Page<InventarioResponse>> listar(Pageable pageable) {
+        return ResponseEntity.ok(inventarioService.listar(pageable).map(inventarioService::toResponse));
     }
 
     @GetMapping("/activos")
-    public ResponseEntity<List<Inventario>> listarActivos() {
-        return ResponseEntity.ok(inventarioService.listarActivos());
+    public ResponseEntity<List<InventarioResponse>> listarActivos() {
+        return ResponseEntity.ok(inventarioService.listarActivos().stream()
+                .map(inventarioService::toResponse)
+                .toList());
     }
 
     @GetMapping("/categoria/{categoria}")
-    public ResponseEntity<List<Inventario>> listarPorCategoria(@PathVariable String categoria) {
-        return ResponseEntity.ok(inventarioService.listarPorCategoria(categoria));
+    public ResponseEntity<List<InventarioResponse>> listarPorCategoria(@PathVariable String categoria) {
+        return ResponseEntity.ok(inventarioService.listarPorCategoria(categoria).stream()
+                .map(inventarioService::toResponse)
+                .toList());
     }
 
     @GetMapping("/stock-bajo")
-    public ResponseEntity<List<Inventario>> listarStockBajo() {
-        return ResponseEntity.ok(inventarioService.listarStockBajo());
+    public ResponseEntity<List<InventarioResponse>> listarStockBajo() {
+        return ResponseEntity.ok(inventarioService.listarStockBajo().stream()
+                .map(inventarioService::toResponse)
+                .toList());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Inventario> obtenerPorId(@PathVariable Long id) {
-        return ResponseEntity.ok(inventarioService.obtenerPorId(id));
+    public ResponseEntity<InventarioResponse> obtenerPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(inventarioService.toResponse(inventarioService.obtenerPorId(id)));
     }
 
     @GetMapping("/codigo/{codigo}")
-    public ResponseEntity<Inventario> obtenerPorCodigo(@PathVariable String codigo) {
-        return ResponseEntity.ok(inventarioService.obtenerPorCodigo(codigo));
+    public ResponseEntity<InventarioResponse> obtenerPorCodigo(@PathVariable String codigo) {
+        return ResponseEntity.ok(inventarioService.toResponse(inventarioService.obtenerPorCodigo(codigo)));
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<Inventario> crear(@Valid @RequestBody InventarioRequest request) {
+    public ResponseEntity<InventarioResponse> crear(@Valid @RequestBody InventarioRequest request) {
         Inventario creado = inventarioService.crear(request);
         auditService.registrar("CREAR_REPUESTO", "INVENTARIO", creado.getId(),
                 "Creado el repuesto " + creado.getCodigo());
         notificarStockBajo(creado);
-        return ResponseEntity.ok(creado);
+        return ResponseEntity.ok(inventarioService.toResponse(creado));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
-    public ResponseEntity<Inventario> actualizar(@PathVariable Long id, @Valid @RequestBody InventarioRequest request) {
+    public ResponseEntity<InventarioResponse> actualizar(@PathVariable Long id, @Valid @RequestBody InventarioRequest request) {
         Inventario actualizado = inventarioService.actualizar(id, request);
         auditService.registrar("ACTUALIZAR_REPUESTO", "INVENTARIO", id,
                 "Actualizado el repuesto " + actualizado.getCodigo());
         notificarStockBajo(actualizado);
-        return ResponseEntity.ok(actualizado);
+        return ResponseEntity.ok(inventarioService.toResponse(actualizado));
     }
 
     @PutMapping("/{id}/stock")
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
-    public ResponseEntity<Inventario> ajustarStock(@PathVariable Long id, @RequestParam Integer cantidad) {
+    public ResponseEntity<InventarioResponse> ajustarStock(@PathVariable Long id, @RequestParam Integer cantidad) {
         Inventario actualizado = inventarioService.ajustarStock(id, cantidad);
         auditService.registrar("AJUSTAR_STOCK", "INVENTARIO", id,
                 "Stock ajustado en " + cantidad + " (nuevo: " + actualizado.getStockActual() + ")");
         notificarStockBajo(actualizado);
-        return ResponseEntity.ok(actualizado);
+        return ResponseEntity.ok(inventarioService.toResponse(actualizado));
     }
 
     @DeleteMapping("/{id}")

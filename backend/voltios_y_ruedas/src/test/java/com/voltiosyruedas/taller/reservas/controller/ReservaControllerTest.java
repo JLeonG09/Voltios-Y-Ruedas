@@ -164,7 +164,7 @@ class ReservaControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
+    @WithMockUsuario(username = "admin@taller.com", rol = "ADMIN")
     void obtenerPorId_existente_deberiaRetornarReserva() throws Exception {
         when(reservaService.obtenerPorId(1L)).thenReturn(reserva);
 
@@ -173,6 +173,33 @@ class ReservaControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.descripcion").value("Cambio de aceite"));
+    }
+
+    @Test
+    @WithMockUsuario(username = "otro@test.com", rol = "CLIENTE")
+    void obtenerPorId_clienteAjeno_deberiaRetornar403() throws Exception {
+        Usuario otroDueno = Usuario.builder()
+                .id(99L)
+                .nombre("Otro")
+                .apellido("Cliente")
+                .email("dueno@test.com")
+                .password("encodedPassword")
+                .rol(cliente.getRol())
+                .activo(true)
+                .build();
+        Reserva ajena = Reserva.builder()
+                .id(1L)
+                .cliente(otroDueno)
+                .fechaHora(request.getFechaHora())
+                .descripcion(request.getDescripcion())
+                .categoriaServicio(request.getCategoriaServicio())
+                .estado("PENDIENTE")
+                .build();
+        when(reservaService.obtenerPorId(1L)).thenReturn(ajena);
+
+        mockMvc.perform(get("/api/reservas/1")
+                        .with(csrf()))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -216,7 +243,7 @@ class ReservaControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "admin@taller.com", roles = {"ADMIN"})
+    @WithMockUsuario(username = "admin@taller.com", rol = "ADMIN")
     void actualizar_deberiaModificarReserva() throws Exception {
         ReservaRequest updateRequest = ReservaRequest.builder()
                 .fechaHora(LocalDateTime.now().plusDays(2))
@@ -264,8 +291,10 @@ class ReservaControllerTest {
     }
 
     @Test
-    @WithMockUser(username = "cliente@test.com", roles = {"CLIENTE"})
+    @WithMockUsuario(username = "juan.perez@test.com", rol = "CLIENTE")
     void cancelar_deberiaPonerEstadoCancelada() throws Exception {
+        when(reservaService.obtenerPorId(1L)).thenReturn(reserva);
+
         mockMvc.perform(put("/api/reservas/1/cancelar")
                         .with(csrf()))
                 .andExpect(status().isOk());

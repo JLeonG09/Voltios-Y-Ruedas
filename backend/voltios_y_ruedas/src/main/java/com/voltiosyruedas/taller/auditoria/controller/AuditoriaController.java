@@ -1,6 +1,6 @@
 package com.voltiosyruedas.taller.auditoria.controller;
 
-import com.voltiosyruedas.taller.auditoria.entity.AuditoriaLog;
+import com.voltiosyruedas.taller.auditoria.dto.AuditoriaResponse;
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -25,7 +25,7 @@ public class AuditoriaController {
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER')")
     @Operation(summary = "Listar registros de auditoría", security = @SecurityRequirement(name = "bearerAuth"))
-    public ResponseEntity<Page<AuditoriaLog>> listar(Pageable pageable) {
-        return ResponseEntity.ok(auditService.listar(pageable));
+    public ResponseEntity<Page<AuditoriaResponse>> listar(Pageable pageable) {
+        return ResponseEntity.ok(auditService.listar(pageable).map(auditService::toResponse));
     }
 }

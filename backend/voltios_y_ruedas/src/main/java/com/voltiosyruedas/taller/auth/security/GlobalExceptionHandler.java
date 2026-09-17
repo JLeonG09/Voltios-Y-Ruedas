@@ -4,6 +4,8 @@ import com.voltiosyruedas.taller.common.exception.ApiException;
 import com.voltiosyruedas.taller.common.exception.ErrorResponse;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationExceptions(MethodArgumentNotValidException ex) {
@@ -68,19 +72,22 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
-        String mensaje = "Conflicto de datos";
-        String detalle = ex.getMostSpecificCause().getMessage();
-        
+        logger.error("Violación de integridad de datos", ex);
+
+        String detalle = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : null;
+        String mensaje;
         if (detalle != null && detalle.contains("duplicate key")) {
-            mensaje = "El recurso ya existe";
+            mensaje = "El recurso ya está registrado";
         } else if (detalle != null && detalle.contains("foreign key")) {
             mensaje = "No se puede eliminar: existen registros relacionados";
+        } else {
+            mensaje = "Conflicto de datos";
         }
 
         ErrorResponse response = ErrorResponse.builder()
                 .código("DATA_INTEGRITY_ERROR")
                 .mensaje(mensaje)
-                .detalles(List.of(detalle != null ? detalle : "Error de integridad de datos"))
+                .detalles(List.of(mensaje))
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -89,10 +96,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(EntityNotFoundException ex) {
+        logger.warn("Entidad no encontrada: {}", ex.getClass().getSimpleName());
         ErrorResponse response = ErrorResponse.builder()
                 .código("NOT_FOUND")
                 .mensaje("Recurso no encontrado")
-                .detalles(List.of(ex.getMessage()))
+                .detalles(List.of("Recurso no encontrado"))
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -125,10 +133,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
+        logger.warn("Argumento inválido (no se expone mensaje técnico al cliente)");
         ErrorResponse response = ErrorResponse.builder()
                 .código("BAD_REQUEST")
                 .mensaje("Solicitud inválida")
-                .detalles(List.of(ex.getMessage()))
+                .detalles(List.of("Solicitud inválida"))
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -149,11 +158,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ClassCastException.class)
     public ResponseEntity<ErrorResponse> handleClassCastException(ClassCastException ex) {
-        ex.printStackTrace();
+        logger.error("Error de conversión de tipos", ex);
         ErrorResponse response = ErrorResponse.builder()
-                .código("CLASS_CAST_ERROR")
-                .mensaje("Error de conversión de tipos")
-                .detalles(List.of(ex.getMessage()))
+                .código("INTERNAL_ERROR")
+                .mensaje("Error interno del servidor")
+                .detalles(List.of("Error interno del servidor"))
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -162,10 +171,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {
+        logger.error("Error no controlado", ex);
         ErrorResponse response = ErrorResponse.builder()
                 .código("INTERNAL_ERROR")
                 .mensaje("Error interno del servidor")
-                .detalles(List.of(ex.getMessage()))
+                .detalles(List.of("Error interno del servidor"))
                 .timestamp(LocalDateTime.now())
                 .build();
 
@@ -174,6 +184,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex) {
+        logger.error("Error inesperado", ex);
         ErrorResponse response = ErrorResponse.builder()
                 .código("INTERNAL_ERROR")
                 .mensaje("Ha ocurrido un error inesperado")

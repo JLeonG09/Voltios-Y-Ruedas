@@ -7,6 +7,7 @@ import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { useAuthStore } from '../store/authStore';
 import { useDarkMode } from '../hooks/useDarkMode';
+import { rutaInicioPorRol } from '../utils/roles';
 
 const servicios = [
   { icon: Wrench, title: 'Diagnostico general', desc: 'Lectura computarizada y revision mecanica completa.' },
@@ -33,7 +34,7 @@ const LandingPage = () => {
       navigate('/login');
       return;
     }
-    navigate(user?.rol?.nombre === 'CLIENTE' ? '/mi-vehiculo' : '/dashboard');
+    navigate(rutaInicioPorRol(user?.rol?.nombre));
   };
 
   return (

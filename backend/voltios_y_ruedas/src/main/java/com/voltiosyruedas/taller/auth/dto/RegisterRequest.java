@@ -1,5 +1,6 @@
 package com.voltiosyruedas.taller.auth.dto;
 
+import com.voltiosyruedas.taller.common.validation.ValidPassword;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -32,9 +33,10 @@ public class RegisterRequest {
     @Size(max = 150, message = "El email no puede exceder 150 caracteres")
     private String email;
 
-    @Schema(description = "Contraseña del usuario", example = "password123", requiredMode = Schema.RequiredMode.REQUIRED)
+    @Schema(description = "Contraseña del usuario (8+ chars, 1 mayúscula, 1 minúscula, 1 número, 1 símbolo)", example = "Password123!", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, max = 255, message = "La contraseña debe tener entre 6 y 255 caracteres")
+    @Size(max = 255, message = "La contraseña no puede exceder 255 caracteres")
+    @ValidPassword
     private String password;
 
     @Schema(description = "Teléfono del usuario (formato Costa Rica: 8 dígitos, prefijo +506 opcional)", example = "+506 8888 8888")

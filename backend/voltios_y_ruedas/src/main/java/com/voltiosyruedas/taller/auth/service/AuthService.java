@@ -11,7 +11,9 @@ import com.voltiosyruedas.taller.auth.repository.RefreshTokenRepository;
 import com.voltiosyruedas.taller.auth.repository.RolRepository;
 import com.voltiosyruedas.taller.auth.repository.UsuarioRepository;
 import com.voltiosyruedas.taller.auth.security.JwtUtil;
+import com.voltiosyruedas.taller.auth.security.TokenHashUtil;
 import com.voltiosyruedas.taller.common.exception.ApiException;
+import com.voltiosyruedas.taller.common.transaction.AfterCommit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,7 @@ public class AuthService {
     private final PasswordResetService passwordResetService;
     private final EmailVerificationService emailVerificationService;
     private final com.voltiosyruedas.taller.notificaciones.service.MailService mailService;
+    private final com.voltiosyruedas.taller.auth.security.LoginAttemptService loginAttemptService;
 
     @Transactional
     public Usuario registrar(RegisterRequest request) {
@@ -76,18 +79,34 @@ public class AuthService {
         auditService.registrar("REGISTRO", "USUARIO", guardado.getId(),
                 "Nuevo usuario registrado con email " + guardado.getEmail());
 
-        // Verificación de correo: genera y envía el código (Redis + SMTP/consola).
+        // Side-effect de correo fuera de la TX de negocio (after-commit).
         if (mailService.estaHabilitado()) {
-            try {
-                emailVerificationService.generarYCodigo(guardado.getEmail());
-            } catch (Exception e) {
-                logger.warn("No se pudo enviar el código de verificación a {}: {}", request.getEmail(), e.getMessage());
-            }
+            String emailDestino = guardado.getEmail();
+            AfterCommit.run(() -> {
+                try {
+                    emailVerificationService.generarYCodigo(emailDestino);
+                } catch (Exception e) {
+                    logger.warn("No se pudo enviar el código de verificación a {}", emailDestino);
+                }
+            });
         }
         return guardado;
     }
 
     public String login(LoginRequest request) {
+        String email = request.getEmail().toLowerCase();
+
+        // Account lockout: si la cuenta está bloqueada, rechazar inmediatamente.
+        if (loginAttemptService.estaBloqueada(email)) {
+            long segundosRestantes = loginAttemptService.tiempoBloqueoRestanteSegundos(email);
+            auditService.registrar("LOGIN_BLOQUEADO", "USUARIO", null,
+                    "Intento de login en cuenta bloqueada: " + email);
+            long minutos = segundosRestantes / 60;
+            throw ApiException.unauthorized(
+                    "Demasiados intentos fallidos de inicio de sesión. " +
+                    "La cuenta está bloqueada por " + minutos + " minutos. Intente más tarde.");
+        }
+
         try {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
@@ -98,25 +117,30 @@ public class AuthService {
             UserDetails userDetails = (UserDetails) authentication.getPrincipal();
 
             // Verificación de correo: bloquear acceso hasta verificar el email.
-            Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+            Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
             if (usuario != null && !Boolean.TRUE.equals(usuario.getEmailVerificado())) {
                 throw ApiException.forbidden("Debes verificar tu correo electrónico antes de iniciar sesión");
             }
 
+            // Login exitoso: limpiar contador de intentos fallidos.
+            loginAttemptService.limpiarIntentos(email);
+
             String rol = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
-            auditService.registrar("LOGIN", "USUARIO", null, "Inicio de sesión con email " + request.getEmail());
+            auditService.registrar("LOGIN", "USUARIO", null, "Inicio de sesión exitoso");
             return jwtUtil.generateToken(userDetails, rol);
         } catch (BadCredentialsException e) {
+            loginAttemptService.registrarIntentoFallido(email);
             auditService.registrar("LOGIN_FALLIDO", "USUARIO", null,
-                    "Intento de inicio de sesión fallido con email " + request.getEmail());
-            logger.warn("Intento de login fallido para email: {}", request.getEmail());
+                    "Intento de inicio de sesión fallido");
+            logger.warn("Intento de login fallido para email: {}", email);
             throw e;
         } catch (org.springframework.security.authentication.DisabledException e) {
             // Cuenta pendiente (no verificada) o desactivada por un administrador.
-            Usuario usuario = usuarioRepository.findByEmail(request.getEmail()).orElse(null);
+            Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
             if (usuario != null && !Boolean.TRUE.equals(usuario.getEmailVerificado())) {
                 throw ApiException.forbidden("Debes verificar tu correo electrónico antes de iniciar sesión");
             }
+            loginAttemptService.registrarIntentoFallido(email);
             throw ApiException.forbidden("Tu cuenta está inactiva");
         }
     }
@@ -133,9 +157,10 @@ public class AuthService {
     @Transactional
     public String crearRefreshToken(Usuario usuario) {
         String token = jwtUtil.generateRefreshToken(usuario, usuario.getRol().getNombre());
+        String tokenHash = TokenHashUtil.sha256Hex(token);
         RefreshToken registro = RefreshToken.builder()
                 .usuario(usuario)
-                .token(token)
+                .token(tokenHash)
                 .expiracion(jwtUtil.extractExpiration(token).toInstant()
                         .atZone(java.time.ZoneId.systemDefault()).toLocalDateTime())
                 .revocado(false)
@@ -159,7 +184,8 @@ public class AuthService {
             throw ApiException.unauthorized("Refresh token inválido o expirado");
         }
 
-        RefreshToken registro = refreshTokenRepository.findByToken(refreshToken).orElse(null);
+        String tokenHash = TokenHashUtil.sha256Hex(refreshToken);
+        RefreshToken registro = refreshTokenRepository.findByToken(tokenHash).orElse(null);
         if (registro == null || registro.getRevocado() || registro.getExpiracion().isBefore(LocalDateTime.now())) {
             // Token no vigente: posible reuso tras rotación. Se revoca toda la familia.
             revocarTokensUsuario(usuario.getId());
@@ -204,7 +230,7 @@ public class AuthService {
                 revocarTokensUsuario(usuario.getId());
             }
         } catch (Exception e) {
-            logger.warn("No se pudo revocar el refresh token durante el logout: {}", e.getMessage());
+            logger.warn("No se pudo revocar el refresh token durante el logout");
         }
     }
 
@@ -223,21 +249,25 @@ public class AuthService {
     public String iniciarRecuperacion(String email) {
         boolean existe = usuarioRepository.findByEmail(email).isPresent();
         if (!existe) {
-            // No revelar si el email existe o no
+            auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
+                    "Solicitud de recuperación para email no registrado");
             return null;
         }
-        auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
-                "Se solicitó la recuperación de contraseña para " + email);
         String token = passwordResetService.crearToken(email);
         if (mailService.estaHabilitado()) {
-            // Producción: el token viaja por correo y nunca se expone en la respuesta.
             try {
                 mailService.enviarRecuperacionPassword(email, token);
+                auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
+                        "Token de recuperación enviado por correo");
             } catch (Exception e) {
-                logger.warn("No se pudo enviar el correo de recuperación a {}: {}", email, e.getMessage());
+                logger.warn("No se pudo enviar el correo de recuperación: {}", e.getMessage());
+                auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
+                        "Falló el envío de correo de recuperación");
             }
             return null;
         }
+        auditService.registrar("SOLICITAR_RECUPERACION", "USUARIO", null,
+                "Token de recuperación generado en modo desarrollo (sin SMTP)");
         return token;
     }
 
@@ -245,11 +275,12 @@ public class AuthService {
     public void restablecerPassword(String token, String nuevaPassword) {
         String email = passwordResetService.obtenerEmailPorToken(token);
         Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> ApiException.notFound("Usuario no encontrado con email: " + email));
+                .orElseThrow(() -> ApiException.notFound("Usuario no encontrado"));
         usuario.setPassword(passwordEncoder.encode(nuevaPassword));
         usuarioRepository.save(usuario);
         passwordResetService.eliminarToken(token);
+        loginAttemptService.limpiarIntentos(email);
         auditService.registrar("RESTABLECER_PASSWORD", "USUARIO", usuario.getId(),
-                "Se restableció la contraseña de " + email);
+                "Contraseña restablecida correctamente");
     }
 }

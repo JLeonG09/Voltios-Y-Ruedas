@@ -16,6 +16,7 @@ import { useUIStore } from '../store/uiStore';
 import { useEffect } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
 import type { Usuario } from '../types/auth';
+import { ROLES, catalogarRoles, idRolPorNombre, type RolCatalogo } from '../utils/roles';
 
 type UsuarioWithRelations = Usuario & {
   rol: { id: number; nombre: string; descripcion?: string };
@@ -36,7 +37,8 @@ export const UsuariosPage = () => {
   const [editingUsuario, setEditingUsuario] = useState<UsuarioWithRelations | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<number | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const isAdmin = user?.rol?.nombre === 'ADMIN';
+  const [rolesCatalogo, setRolesCatalogo] = useState<RolCatalogo[]>([]);
+  const isAdmin = user?.rol?.nombre === ROLES.ADMIN;
 
   const columns: Column<UsuarioWithRelations>[] = [
     { key: 'nombreCompleto', header: 'Nombre', render: (u) => u.nombreCompleto },
@@ -82,9 +84,13 @@ export const UsuariosPage = () => {
   } = useForm<UsuarioFormData>({
     resolver: zodResolver(usuarioSchema),
     defaultValues: {
-      rolId: 4,
+      rolId: undefined,
     },
   });
+
+  const incorporarRoles = (lista: Usuario[]) => {
+    setRolesCatalogo((prev) => catalogarRoles([...prev.map((rol) => ({ rol })), ...lista]));
+  };
 
   const fetchUsuarios = async () => {
     setLoading(true);
@@ -92,6 +98,7 @@ export const UsuariosPage = () => {
       const rolId = rolFilter ? Number(rolFilter) : undefined;
       const response = await usuarioService.listar(page - 1, 10, debouncedSearch, rolId);
       setUsuarios(response.content);
+      incorporarRoles(response.content);
       const totalPaginas = Math.max(1, Math.ceil(response.totalElements / 10));
       setTotalPages(totalPaginas);
       setTotalItems(response.totalElements);
@@ -108,6 +115,12 @@ export const UsuariosPage = () => {
   useEffect(() => {
     fetchUsuarios();
   }, [page, debouncedSearch, rolFilter]);
+
+  useEffect(() => {
+    usuarioService.listarTodos()
+      .then(incorporarRoles)
+      .catch(() => undefined);
+  }, []);
 
   const handleEdit = (usuario: UsuarioWithRelations) => {
     setEditingUsuario(usuario);
@@ -131,7 +144,7 @@ export const UsuariosPage = () => {
       password: '',
       telefono: '',
       direccion: '',
-      rolId: 4,
+      rolId: idRolPorNombre(rolesCatalogo, ROLES.CLIENTE),
     });
     setShowModal(true);
   };
@@ -141,12 +154,17 @@ export const UsuariosPage = () => {
       addNotification({ type: 'error', title: 'Error', message: 'La contraseña es obligatoria' });
       return;
     }
+    const rolId = data.rolId ?? idRolPorNombre(rolesCatalogo, ROLES.CLIENTE);
+    if (rolId == null) {
+      addNotification({ type: 'error', title: 'Error', message: 'Selecciona un rol' });
+      return;
+    }
     try {
       if (editingUsuario) {
-        await usuarioService.actualizar(editingUsuario.id, data);
+        await usuarioService.actualizar(editingUsuario.id, { ...data, rolId });
         addNotification({ type: 'success', title: 'Éxito', message: 'Usuario actualizado' });
       } else {
-        await usuarioService.crear({ ...data, password: data.password!, rolId: data.rolId ?? 4 });
+        await usuarioService.crear({ ...data, password: data.password!, rolId });
         addNotification({ type: 'success', title: 'Éxito', message: 'Usuario creado' });
       }
       setShowModal(false);
@@ -169,12 +187,7 @@ export const UsuariosPage = () => {
     }
   };
 
-  const rolOptions = [
-    { value: '4', label: 'CLIENTE' },
-    { value: '3', label: 'MECANICO' },
-    { value: '2', label: 'JEFE_TALLER' },
-    { value: '1', label: 'ADMIN' },
-  ];
+  const rolOptions = rolesCatalogo.map((rol) => ({ value: String(rol.id), label: rol.nombre }));
 
   return (
     <div className="space-y-6 animate-fade-in">

@@ -9,6 +9,8 @@ import com.voltiosyruedas.taller.auth.repository.RefreshTokenRepository;
 import com.voltiosyruedas.taller.auth.repository.RolRepository;
 import com.voltiosyruedas.taller.auth.repository.UsuarioRepository;
 import com.voltiosyruedas.taller.auth.security.JwtUtil;
+import com.voltiosyruedas.taller.auth.security.LoginAttemptService;
+import com.voltiosyruedas.taller.auth.security.TokenHashUtil;
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.notificaciones.service.MailService;
 import org.junit.jupiter.api.BeforeEach;
@@ -66,6 +68,9 @@ class AuthServiceTest {
     @Mock
     private MailService mailService;
 
+    @Mock
+    private LoginAttemptService loginAttemptService;
+
     @InjectMocks
     private AuthService authService;
 
@@ -107,6 +112,7 @@ class AuthServiceTest {
         rolCliente = new Rol(4L, "CLIENTE", "Cliente del taller");
 
         lenient().when(mailService.estaHabilitado()).thenReturn(false);
+        lenient().when(loginAttemptService.estaBloqueada(anyString())).thenReturn(false);
 
         registerRequest = RegisterRequest.builder()
                 .nombre("Juan")
@@ -189,11 +195,14 @@ class AuthServiceTest {
                 .email("juan.perez@test.com")
                 .password("encodedPassword")
                 .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
                 .build();
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(usuario);
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
 
         String token = authService.login(loginRequest);
 
@@ -224,11 +233,14 @@ class AuthServiceTest {
                 .email("juan.perez@test.com")
                 .password("encodedPassword")
                 .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
                 .build();
 
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
         when(authentication.getPrincipal()).thenReturn(usuario);
+        when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
 
         // This test verifies the flow works - the service doesn't check if user exists in DB after auth
         String token = authService.login(loginRequest);
@@ -245,20 +257,30 @@ class AuthServiceTest {
                 .email("juan.perez@test.com")
                 .password("encodedPassword")
                 .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
                 .build();
 
         String refreshTokenUsado = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        String tokenHash = TokenHashUtil.sha256Hex(refreshTokenUsado);
         RefreshToken registro = RefreshToken.builder()
                 .id(10L)
                 .usuario(usuario)
-                .token(refreshTokenUsado)
+                .token(tokenHash)
                 .expiracion(LocalDateTime.now().plusDays(7))
                 .revocado(false)
                 .build();
 
         when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
-        when(refreshTokenRepository.findByToken(refreshTokenUsado)).thenReturn(Optional.of(registro));
-        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(refreshTokenRepository.findByToken(tokenHash)).thenReturn(Optional.of(registro));
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> {
+            RefreshToken rt = invocation.getArgument(0);
+            // El nuevo refresh se persiste con hash; el JWT en claro se devuelve al cliente
+            if (rt.getToken() != null && rt.getToken().length() == 64) {
+                return rt;
+            }
+            return rt;
+        });
 
         var respuesta = authService.refrescarToken(refreshTokenUsado);
 
@@ -268,7 +290,12 @@ class AuthServiceTest {
 
         // El token usado queda revocado (rotación)
         assertThat(registro.getRevocado()).isTrue();
-        verify(refreshTokenRepository, times(1)).save(registro);
+        // Persistido como hash, no el JWT en claro
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository, atLeastOnce()).save(captor.capture());
+        assertThat(captor.getAllValues().stream()
+                .anyMatch(rt -> tokenHash.equals(rt.getToken()) || (rt.getToken() != null && rt.getToken().length() == 64)))
+                .isTrue();
     }
 
     @Test
@@ -280,12 +307,15 @@ class AuthServiceTest {
                 .email("juan.perez@test.com")
                 .password("encodedPassword")
                 .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
                 .build();
 
         String refreshToken = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        String tokenHash = TokenHashUtil.sha256Hex(refreshToken);
         // El token ya no existe en BD (fue rotado en un uso previo) => reuso
         when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
-        when(refreshTokenRepository.findByToken(refreshToken)).thenReturn(Optional.empty());
+        when(refreshTokenRepository.findByToken(tokenHash)).thenReturn(Optional.empty());
         when(refreshTokenRepository.findByUsuarioIdAndRevocadoFalse(1L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> authService.refrescarToken(refreshToken))
@@ -305,24 +335,52 @@ class AuthServiceTest {
                 .email("juan.perez@test.com")
                 .password("encodedPassword")
                 .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
                 .build();
 
         String refreshToken = jwtUtil.generateRefreshToken(usuario, "CLIENTE");
+        String tokenHash = TokenHashUtil.sha256Hex(refreshToken);
         RefreshToken registroRevocado = RefreshToken.builder()
                 .id(10L)
                 .usuario(usuario)
-                .token(refreshToken)
+                .token(tokenHash)
                 .expiracion(LocalDateTime.now().plusDays(7))
                 .revocado(true)
                 .build();
 
         when(usuarioRepository.findByEmail("juan.perez@test.com")).thenReturn(Optional.of(usuario));
-        when(refreshTokenRepository.findByToken(refreshToken)).thenReturn(Optional.of(registroRevocado));
+        when(refreshTokenRepository.findByToken(tokenHash)).thenReturn(Optional.of(registroRevocado));
         when(refreshTokenRepository.findByUsuarioIdAndRevocadoFalse(1L)).thenReturn(List.of());
 
         assertThatThrownBy(() -> authService.refrescarToken(refreshToken))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Refresh token inválido o expirado");
+    }
+
+    @Test
+    void crearRefreshToken_persisteHashYNoElJwtEnClaro() {
+        Usuario usuario = Usuario.builder()
+                .id(1L)
+                .nombre("Juan")
+                .apellido("Pérez")
+                .email("juan.perez@test.com")
+                .password("encodedPassword")
+                .rol(rolCliente)
+                .activo(true)
+                .emailVerificado(true)
+                .build();
+
+        when(refreshTokenRepository.save(any(RefreshToken.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        String jwt = authService.crearRefreshToken(usuario);
+
+        ArgumentCaptor<RefreshToken> captor = ArgumentCaptor.forClass(RefreshToken.class);
+        verify(refreshTokenRepository).save(captor.capture());
+        RefreshToken guardado = captor.getValue();
+        assertThat(guardado.getToken()).isEqualTo(TokenHashUtil.sha256Hex(jwt));
+        assertThat(guardado.getToken()).isNotEqualTo(jwt);
+        assertThat(guardado.getToken()).hasSize(64);
     }
 
     @Test

@@ -16,3 +16,5 @@ export { Modal, ConfirmDialog } from './Modal';
 export type { ModalProps, ConfirmDialogProps } from './Modal';
 
 export { ToastContainer } from './ToastContainer';
+
+export { ErrorBoundary } from './ErrorBoundary';

@@ -132,9 +132,15 @@ public class MailService {
         enviar(cliente.getEmail(), "Voltios y Ruedas — Actualización de tu orden #" + orden.getNumeroOrden(), cuerpo);
     }
 
-    /** Envía el enlace de recuperación de contraseña con su token. */
+    /**
+     * Envía el enlace de recuperación de contraseña con su token.
+     * Se usa un path param en lugar de query param para reducir la exposición
+     * en logs del navegador, headers Referer e historial.
+     */
     public void enviarRecuperacionPassword(String email, String token) {
-        String enlace = frontendUrl + "/reestablecer-password?token=" + token;
+        // URL-encode del token para seguridad en path params
+        String tokenEncoded = java.net.URLEncoder.encode(token, java.nio.charset.StandardCharsets.UTF_8);
+        String enlace = frontendUrl + "/reestablecer-password/" + tokenEncoded;
         String cuerpo = htmlBase(
                 "Recupera tu contraseña",
                 "<p>Hola,</p>"

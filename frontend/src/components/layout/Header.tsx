@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { notificacionesService } from '../../services/notificacionesService';
 import { authService } from '../../services/authService';
+import { rutaInicioPorRol } from '../../utils/roles';
 import type { Notificacion } from '../../types';
 
 interface HeaderProps {
@@ -86,8 +87,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
   };
 
   const handleHome = () => {
-    if (user?.rol?.nombre === 'CLIENTE') navigate('/mi-vehiculo');
-    else navigate('/dashboard');
+    navigate(rutaInicioPorRol(user?.rol?.nombre));
   };
 
   const marcarLeida = async (id: number) => {

@@ -102,7 +102,7 @@ class InventarioServiceTest {
         when(inventarioRepository.findByCodigo("REP-001")).thenReturn(Optional.of(inventario));
 
         assertThatThrownBy(() -> inventarioService.crear(crearRequest))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(com.voltiosyruedas.taller.common.exception.ApiException.class)
                 .hasMessageContaining("Ya existe un repuesto con ese código");
 
         verify(inventarioRepository, times(1)).findByCodigo("REP-001");
@@ -190,7 +190,7 @@ class InventarioServiceTest {
         when(inventarioRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> inventarioService.obtenerPorId(999L))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(com.voltiosyruedas.taller.common.exception.ApiException.class)
                 .hasMessageContaining("Repuesto no encontrado con ID: 999");
     }
 
@@ -255,7 +255,7 @@ class InventarioServiceTest {
         when(inventarioRepository.findByCodigo("REP-002")).thenReturn(Optional.of(otroInventario));
 
         assertThatThrownBy(() -> inventarioService.actualizar(1L, updateRequest))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(com.voltiosyruedas.taller.common.exception.ApiException.class)
                 .hasMessageContaining("Ya existe un repuesto con ese código");
     }
 
@@ -287,7 +287,7 @@ class InventarioServiceTest {
         when(inventarioRepository.findById(1L)).thenReturn(Optional.of(inventario));
 
         assertThatThrownBy(() -> inventarioService.ajustarStock(1L, -15))
-                .isInstanceOf(RuntimeException.class)
+                .isInstanceOf(com.voltiosyruedas.taller.common.exception.ApiException.class)
                 .hasMessageContaining("El stock no puede ser negativo");
     }
 

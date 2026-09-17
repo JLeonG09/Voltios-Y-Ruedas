@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { Sidebar, Header } from './index';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
@@ -10,7 +10,7 @@ export const MainLayout = () => {
   useSessionTimeout();
 
   if (!isAuthenticated || !user) {
-    return <Outlet />;
+    return <Navigate to="/login" replace />;
   }
 
   return (

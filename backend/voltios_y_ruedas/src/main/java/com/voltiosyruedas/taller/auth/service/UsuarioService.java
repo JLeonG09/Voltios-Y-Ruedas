@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.auth.dto.ActualizarPerfilRequest;
 import com.voltiosyruedas.taller.auth.dto.PreferenciasRequest;
+import com.voltiosyruedas.taller.auth.dto.UsuarioRequest;
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.common.exception.ApiException;
 import com.voltiosyruedas.taller.auth.entity.Rol;
@@ -56,46 +57,51 @@ public class UsuarioService implements UserDetailsService {
     }
 
     @Transactional
-    public Usuario crear(Usuario usuario) {
-        if (usuarioRepository.existsByEmail(usuario.getEmail())) {
+    public Usuario crear(UsuarioRequest request) {
+        if (usuarioRepository.existsByEmail(request.getEmail())) {
             throw ApiException.conflict("El email ya está registrado");
         }
-        // El rol llega como referencia {id}; se resuelve a la entidad gestionada.
-        resolverRol(usuario);
-        usuario.setPassword(passwordEncoder.encode(usuario.getPassword()));
-        if (usuario.getActivo() == null) {
-            usuario.setActivo(true);
+        if (request.getPassword() == null || request.getPassword().isBlank()) {
+            throw ApiException.badRequest("La contraseña es obligatoria");
         }
+        Rol rol = resolverRol(request.getRolId());
+        Usuario usuario = Usuario.builder()
+                .nombre(request.getNombre())
+                .apellido(request.getApellido())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .telefono(request.getTelefono())
+                .direccion(request.getDireccion())
+                .activo(request.getActivo() == null ? Boolean.TRUE : request.getActivo())
+                .rol(rol)
+                .build();
         return usuarioRepository.save(usuario);
     }
 
     @Transactional
-    public Usuario actualizar(Long id, Usuario usuarioActualizado) {
+    public Usuario actualizar(Long id, UsuarioRequest request) {
         Usuario usuario = obtenerPorId(id);
-        usuario.setNombre(usuarioActualizado.getNombre());
-        usuario.setApellido(usuarioActualizado.getApellido());
-        usuario.setTelefono(usuarioActualizado.getTelefono());
-        usuario.setDireccion(usuarioActualizado.getDireccion());
+        usuario.setNombre(request.getNombre());
+        usuario.setApellido(request.getApellido());
+        usuario.setTelefono(request.getTelefono());
+        usuario.setDireccion(request.getDireccion());
         // Si el campo no viene en el JSON no se toca (evita nulear activo).
-        if (usuarioActualizado.getActivo() != null) {
-            usuario.setActivo(usuarioActualizado.getActivo());
+        if (request.getActivo() != null) {
+            usuario.setActivo(request.getActivo());
         }
-        if (usuarioActualizado.getRol() != null) {
-            resolverRol(usuarioActualizado);
-            usuario.setRol(usuarioActualizado.getRol());
+        if (request.getRolId() != null) {
+            usuario.setRol(resolverRol(request.getRolId()));
         }
-        
         return usuarioRepository.save(usuario);
     }
 
     /** Resuelve el rol por id a una entidad gestionada (rechaza ids inexistentes). */
-    private void resolverRol(Usuario usuario) {
-        if (usuario.getRol() == null || usuario.getRol().getId() == null) {
+    private Rol resolverRol(Long rolId) {
+        if (rolId == null) {
             throw ApiException.badRequest("El rol es obligatorio");
         }
-        Rol rol = rolRepository.findById(usuario.getRol().getId())
+        return rolRepository.findById(rolId)
                 .orElseThrow(() -> ApiException.badRequest("Rol no encontrado"));
-        usuario.setRol(rol);
     }
 
     @Transactional

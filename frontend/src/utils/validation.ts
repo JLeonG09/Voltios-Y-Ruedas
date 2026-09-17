@@ -29,7 +29,7 @@ const nombreObligatorio = z
 
 export const loginSchema = z.object({
   email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  password: z.string().min(1, 'La contraseña es obligatoria'),
 });
 
 export type LoginFormData = z.infer<typeof loginSchema>;
@@ -40,11 +40,27 @@ export const recuperarPasswordSchema = z.object({
 
 export type RecuperarPasswordFormData = z.infer<typeof recuperarPasswordSchema>;
 
+export const reestablecerPasswordSchema = z
+  .object({
+    token: z.string().min(1, 'El token es obligatorio'),
+    nuevaPassword: z
+      .string()
+      .min(8, 'La contraseña debe tener al menos 8 caracteres')
+      .max(255, 'Máximo 255 caracteres'),
+    confirmarPassword: z.string().min(1, 'Confirma la nueva contraseña'),
+  })
+  .refine((data) => data.nuevaPassword === data.confirmarPassword, {
+    message: 'Las contraseñas no coinciden',
+    path: ['confirmarPassword'],
+  });
+
+export type ReestablecerPasswordFormData = z.infer<typeof reestablecerPasswordSchema>;
+
 export const registerSchema = z.object({
   nombre: nombreObligatorio,
   apellido: nombreObligatorio,
   email: z.string().min(1, 'El email es obligatorio').regex(regexEmail, 'Email inválido'),
-  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres').max(255),
+  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(255),
   telefono: telefonoOpcional,
   direccion: z.string().max(255, 'Máximo 255 caracteres').optional().transform((v) => v?.trim() || undefined),
 });
@@ -59,7 +75,7 @@ export const usuarioSchema = registerSchema.extend({
   rolId: z.coerce.number().optional(),
   password: z
     .string()
-    .min(6, 'La contraseña debe tener al menos 6 caracteres')
+    .min(8, 'La contraseña debe tener al menos 8 caracteres')
     .max(255, 'Máximo 255 caracteres')
     .optional(),
 });

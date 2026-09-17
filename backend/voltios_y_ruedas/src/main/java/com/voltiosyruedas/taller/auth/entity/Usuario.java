@@ -52,8 +52,7 @@ public class Usuario implements UserDetails {
 
     @Column(nullable = false, length = 255)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @Size(min = 6, max = 255, message = "La contraseña debe tener entre 6 y 255 caracteres")
-    @Pattern(regexp = "^.{6,}$", message = "La contraseña debe tener al menos 6 caracteres")
+    @Size(max = 255, message = "La contraseña no puede exceder 255 caracteres")
     private String password;
 
     @Column(length = 20)
@@ -72,7 +71,7 @@ public class Usuario implements UserDetails {
 
     @Column(name = "email_verificado", nullable = false)
     @Builder.Default
-    private Boolean emailVerificado = true;
+    private Boolean emailVerificado = false;
 
     @Column(name = "fecha_creacion", nullable = false, updatable = false)
     private LocalDateTime fechaCreacion;

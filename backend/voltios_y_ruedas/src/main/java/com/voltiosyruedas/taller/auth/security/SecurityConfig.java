@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -43,13 +44,16 @@ public class SecurityConfig {
     private RateLimitingFilter rateLimitingFilter;
 
     @Autowired
+    private RequestIdFilter requestIdFilter;
+
+    @Autowired
     @Lazy
     private UserDetailsService userDetailsService;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Value("${app.cors.allowed-origins:*}")
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost:3000}")
     private String allowedOrigins;
 
     @Bean
@@ -58,9 +62,21 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {})
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                    // Solo rutas auth públicas reales (login/registro/recuperación/refresh/verificación).
+                    // /me, preferencias y logout requieren JWT.
+                    .requestMatchers(
+                            "/api/auth/login",
+                            "/api/auth/register",
+                            "/api/auth/refresh",
+                            "/api/auth/recuperar-password",
+                            "/api/auth/reestablecer-password",
+                            "/api/auth/verificar-email",
+                            "/api/auth/reenviar-codigo"
+                    ).permitAll()
+                    .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                    .requestMatchers("/.well-known/security.txt").permitAll()
+                    .requestMatchers("/v3/api-docs/**").hasRole("ADMIN")
+                    .requestMatchers("/swagger-ui/**", "/swagger-ui.html").hasRole("ADMIN")
                         .requestMatchers("/api/usuarios/**").hasAnyRole("ADMIN", "JEFE_TALLER")
                         .requestMatchers("/api/reservas/**").hasAnyRole("ADMIN", "JEFE_TALLER", "MECANICO", "CLIENTE")
                         .requestMatchers("/api/ordenes/**").hasAnyRole("ADMIN", "JEFE_TALLER", "MECANICO", "CLIENTE")
@@ -92,12 +108,14 @@ public class SecurityConfig {
                         .frameOptions(frame -> frame.deny())
                         .xssProtection(xss -> xss
                                 .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                        .contentTypeOptions(contentType -> {})
                         .contentSecurityPolicy(csp -> csp
-                                .policyDirectives("default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'"))
+                                .policyDirectives("default-src 'self'; base-uri 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'"))
                         .referrerPolicy(referrer -> referrer
                                 .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
                         .cacheControl(cache -> cache.disable()))
                 .addFilterBefore(rateLimitingFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(requestIdFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -106,14 +124,22 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOriginPatterns(Arrays.stream(allowedOrigins.split(","))
+        List<String> orígenes = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
-                .toList());
+                .toList();
+        if (orígenes.contains("*")) {
+            // Un origen "*" no puede combinarse con credenciales: se desactivan.
+            config.setAllowedOriginPatterns(List.of("*"));
+            config.setAllowCredentials(false);
+        } else {
+            // Lista explícita: coincidencia exacta y credenciales permitidas.
+            config.setAllowedOrigins(orígenes);
+            config.setAllowCredentials(true);
+        }
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "ngrok-skip-browser-warning"));
         config.setExposedHeaders(List.of("Authorization"));
-        config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

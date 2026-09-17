@@ -10,6 +10,7 @@ import { loginSchema, type LoginFormData } from '../utils/validation';
 import { useAuthStore } from '../store/authStore';
 import { useUIStore } from '../store/uiStore';
 import { authService } from '../services/authService';
+import { rutaInicioPorRol } from '../utils/roles';
 import type { JwtResponse } from '../types/auth';
 
 export const LoginPage = () => {
@@ -37,7 +38,7 @@ export const LoginPage = () => {
       const response: JwtResponse = await authService.login(data);
       login(response);
       addNotification({ type: 'success', title: 'Bienvenido', message: 'Has iniciado sesión correctamente' });
-      navigate('/dashboard');
+      navigate(rutaInicioPorRol(response.rol), { replace: true });
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Credenciales inválidas';
       addNotification({ type: 'error', title: 'Error', message });

@@ -1,8 +1,11 @@
 package com.voltiosyruedas.taller.auth.controller;
 
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
+import com.voltiosyruedas.taller.auth.dto.CambiarPasswordRequest;
+import com.voltiosyruedas.taller.auth.dto.UsuarioRequest;
 import com.voltiosyruedas.taller.auth.dto.UsuarioResponse;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.security.SecurityUtils;
 import com.voltiosyruedas.taller.auth.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -60,8 +63,8 @@ public class UsuarioController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody Usuario usuario) {
-        Usuario guardado = usuarioService.crear(usuario);
+    public ResponseEntity<UsuarioResponse> crear(@Valid @RequestBody UsuarioRequest request) {
+        Usuario guardado = usuarioService.crear(request);
         auditService.registrar("CREAR_USUARIO", "USUARIO", guardado.getId(),
                 "Creado el usuario " + guardado.getEmail());
         return ResponseEntity.ok(usuarioService.toResponse(guardado));
@@ -69,8 +72,8 @@ public class UsuarioController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id, @Valid @RequestBody Usuario usuario) {
-        Usuario guardado = usuarioService.actualizar(id, usuario);
+    public ResponseEntity<UsuarioResponse> actualizar(@PathVariable Long id, @Valid @RequestBody UsuarioRequest request) {
+        Usuario guardado = usuarioService.actualizar(id, request);
         auditService.registrar("ACTUALIZAR_USUARIO", "USUARIO", id,
                 "Actualizado el usuario " + guardado.getEmail());
         return ResponseEntity.ok(usuarioService.toResponse(guardado));
@@ -78,10 +81,9 @@ public class UsuarioController {
 
     @PutMapping("/{id}/password")
     @PreAuthorize("hasRole('ADMIN') or #id == authentication.principal.id")
-    public ResponseEntity<Void> cambiarPassword(@PathVariable Long id, 
-            @RequestParam String passwordActual, 
-            @RequestParam String passwordNuevo) {
-        usuarioService.cambiarPassword(id, passwordActual, passwordNuevo);
+    public ResponseEntity<Void> cambiarPassword(@PathVariable Long id,
+            @Valid @RequestBody CambiarPasswordRequest request) {
+        usuarioService.cambiarPassword(id, request.getPasswordActual(), request.getPasswordNuevo());
         return ResponseEntity.ok().build();
     }
 
@@ -94,7 +96,7 @@ public class UsuarioController {
 
     @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> getCurrentUser(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         return ResponseEntity.ok(usuarioService.toResponse(usuario));
     }
 }

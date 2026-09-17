@@ -2,6 +2,7 @@ package com.voltiosyruedas.taller.taller.controller;
 
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.security.SecurityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -51,7 +52,7 @@ public class OrdenTrabajoController {
     @GetMapping("/mis-ordenes")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<List<OrdenTrabajoResponse>> misOrdenes(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         return ResponseEntity.ok(
                 ordenTrabajoService.listarPorCliente(usuario).stream()
                         .map(o -> ordenTrabajoService.mapearRespuesta(o, false))
@@ -65,7 +66,7 @@ public class OrdenTrabajoController {
     @GetMapping("/mi-historial")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<List<OrdenTrabajoResponse>> miHistorial(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         return ResponseEntity.ok(
                 ordenTrabajoService.listarPorCliente(usuario).stream()
                         .map(o -> ordenTrabajoService.mapearRespuesta(o, true))
@@ -122,7 +123,7 @@ public class OrdenTrabajoController {
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<OrdenTrabajoResponse> crear(@Valid @RequestBody OrdenTrabajoRequest request,
                                                       Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         OrdenTrabajo orden = ordenTrabajoService.crear(usuario, request);
         notificarClienteSeguro(orden, "Orden de trabajo creada",
                 "Su orden " + orden.getNumeroOrden() + " ha sido registrada", "orden");
@@ -139,7 +140,7 @@ public class OrdenTrabajoController {
     public ResponseEntity<OrdenTrabajoResponse> actualizar(@PathVariable Long id,
                                                            @Valid @RequestBody OrdenTrabajoRequest request,
                                                            Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         OrdenTrabajo orden = ordenTrabajoService.actualizar(usuario, id, request);
         return ResponseEntity.ok(ordenTrabajoService.mapearRespuesta(orden, true));
     }
@@ -152,7 +153,7 @@ public class OrdenTrabajoController {
     public ResponseEntity<OrdenTrabajoResponse> cambiarEstado(@PathVariable Long id,
                                                               @RequestParam String estado,
                                                               Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         OrdenTrabajo orden = ordenTrabajoService.cambiarEstado(usuario, id, estado);
         notificarClienteSeguro(orden, "Estado de orden actualizado",
                 "Su orden " + orden.getNumeroOrden() + " cambió a " + estado, "orden");
@@ -167,7 +168,7 @@ public class OrdenTrabajoController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         ordenTrabajoService.eliminar(usuario, id);
         auditService.registrar("ELIMINAR_ORDEN", "ORDEN_TRABAJO", id,
                 "Orden eliminada por " + usuario.getEmail());
@@ -179,7 +180,7 @@ public class OrdenTrabajoController {
     public ResponseEntity<Void> agregarRepuesto(@PathVariable Long id,
                                                  @Valid @RequestBody RepuestoOrdenRequest request,
                                                  Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         ordenTrabajoService.agregarRepuesto(usuario, id, request);
         auditService.registrar("AGREGAR_REPUESTO", "ORDEN_TRABAJO", id,
                 "Repuesto agregado por " + usuario.getEmail());
@@ -191,7 +192,7 @@ public class OrdenTrabajoController {
     public ResponseEntity<Void> quitarRepuesto(@PathVariable Long id,
                                                 @PathVariable Long inventarioId,
                                                 Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         ordenTrabajoService.quitarRepuesto(usuario, id, inventarioId);
         auditService.registrar("QUITAR_REPUESTO", "ORDEN_TRABAJO", id,
                 "Repuesto retirado por " + usuario.getEmail());
@@ -221,10 +222,7 @@ public class OrdenTrabajoController {
     }
 
     private void validarAcceso(Authentication authentication, OrdenTrabajo orden) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof Usuario)) {
-            return;
-        }
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
         boolean esStaff = List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(rol);
         boolean esDueno = orden.getCliente() != null && orden.getCliente().getId().equals(usuario.getId());
@@ -239,8 +237,8 @@ public class OrdenTrabajoController {
                 notificacionService.crear(orden.getCliente().getId(), titulo, mensaje, tipo);
             }
         } catch (Exception e) {
-            logger.warn("No se pudo notificar al cliente de la orden {}: {}", 
-                    orden != null ? orden.getNumeroOrden() : "?", e.getMessage());
+            logger.warn("No se pudo notificar al cliente de la orden {}",
+                    orden != null ? orden.getNumeroOrden() : "?");
         }
     }
 }

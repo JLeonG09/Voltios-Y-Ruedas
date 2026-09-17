@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Plus, Search, Filter, Package, AlertTriangle, ChevronDown, DollarSign, Edit, Trash2, ArrowUpDown, Download, Upload } from 'lucide-react';
+import { Plus, Search, Filter, Package, Edit, Trash2, ArrowUpDown } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input, Select } from '../components/ui/Input';
 import { Modal, ConfirmDialog } from '../components/ui/Modal';
@@ -175,14 +175,6 @@ export const InventarioPage = () => {
           <p className="text-surface-500 dark:text-surface-400 mt-1">Gestiona repuestos y stock del taller</p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button variant="secondary" size="sm" onClick={() => {}} disabled>
-            <Download className="h-4 w-4" />
-            Exportar
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => {}} disabled>
-            <Upload className="h-4 w-4" />
-            Importar
-          </Button>
           {isAdminOrJefe && (
             <Button onClick={handleNew}>
               <Plus className="h-4 w-4" />

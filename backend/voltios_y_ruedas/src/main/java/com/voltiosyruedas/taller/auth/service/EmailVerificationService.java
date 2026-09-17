@@ -48,12 +48,14 @@ public class EmailVerificationService {
         return codigo;
     }
 
-    /** Reenvía el código sin cambiar la cuenta (devuelve el código generado). */
+    /**
+     * Reenvía el código de verificación. No revela si el email existe o no:
+     * siempre devuelve un mensaje genérico, evitando user enumeration.
+     */
     public String reenviarCodigo(String email) {
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> ApiException.notFound("Usuario no encontrado con email: " + email));
-        if (Boolean.TRUE.equals(usuario.getEmailVerificado())) {
-            throw ApiException.badRequest("El correo ya está verificado");
+        Usuario usuario = usuarioRepository.findByEmail(email).orElse(null);
+        if (usuario == null || Boolean.TRUE.equals(usuario.getEmailVerificado())) {
+            return null;
         }
         return generarYCodigo(email);
     }

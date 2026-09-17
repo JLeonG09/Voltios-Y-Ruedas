@@ -1,6 +1,7 @@
 package com.voltiosyruedas.taller.vehiculo.controller;
 
 import com.voltiosyruedas.taller.auth.entity.Usuario;
+import com.voltiosyruedas.taller.auth.security.SecurityUtils;
 import com.voltiosyruedas.taller.vehiculo.dto.VehiculoRequest;
 import com.voltiosyruedas.taller.vehiculo.dto.VehiculoResponse;
 import com.voltiosyruedas.taller.vehiculo.entity.Vehiculo;
@@ -40,7 +41,7 @@ public class VehiculoController {
     @GetMapping("/mis-vehiculos")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<List<VehiculoResponse>> misVehiculos(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         List<VehiculoResponse> response = vehiculoService.listarPorCliente(usuario).stream()
                 .map(vehiculoService::mapearRespuesta)
                 .toList();
@@ -51,7 +52,7 @@ public class VehiculoController {
     @PreAuthorize("hasAnyRole('ADMIN', 'JEFE_TALLER', 'MECANICO', 'CLIENTE')")
     public ResponseEntity<VehiculoResponse> obtenerPorId(@PathVariable Long id, Authentication authentication) {
         Vehiculo vehiculo = vehiculoService.obtenerPorId(id);
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         boolean esStaff = usuario.getRol() != null
                 && List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(usuario.getRol().getNombre());
         boolean esDueno = vehiculo.getCliente() != null && vehiculo.getCliente().getId().equals(usuario.getId());
@@ -74,7 +75,7 @@ public class VehiculoController {
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<VehiculoResponse> crear(@Valid @RequestBody VehiculoRequest request,
                                                    Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         boolean esStaff = usuario.getRol() != null
                 && List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(usuario.getRol().getNombre());
         Vehiculo vehiculo = esStaff
@@ -91,7 +92,7 @@ public class VehiculoController {
     public ResponseEntity<VehiculoResponse> actualizar(@PathVariable Long id,
                                                         @Valid @RequestBody VehiculoRequest request,
                                                         Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         Vehiculo vehiculo = vehiculoService.actualizar(usuario, id, request);
         return ResponseEntity.ok(vehiculoService.mapearRespuesta(vehiculo));
     }
@@ -104,7 +105,7 @@ public class VehiculoController {
     public ResponseEntity<VehiculoResponse> cambiarEstado(@PathVariable Long id,
                                                            @RequestParam String estado,
                                                            Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         Vehiculo vehiculo = vehiculoService.cambiarEstado(usuario, id, estado);
         return ResponseEntity.ok(vehiculoService.mapearRespuesta(vehiculo));
     }
@@ -115,7 +116,7 @@ public class VehiculoController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> eliminar(@PathVariable Long id, Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         vehiculoService.eliminar(usuario, id);
         return ResponseEntity.noContent().build();
     }

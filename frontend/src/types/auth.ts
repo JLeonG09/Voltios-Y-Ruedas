@@ -1,6 +1,9 @@
+/** Nombres de rol exactos del backend (`Rol.nombre` / JWT). */
+export type NombreRol = 'ADMIN' | 'JEFE_TALLER' | 'MECANICO' | 'CLIENTE';
+
 export interface Rol {
   id: number;
-  nombre: string;
+  nombre: NombreRol | string;
   descripcion?: string;
 }
 
@@ -54,7 +57,7 @@ export interface RecuperarPasswordRequest {
 
 export interface ReestablecerPasswordRequest {
   token: string;
-  password: string;
+  nuevaPassword: string;
 }
 
 export interface CambiarPasswordRequest {

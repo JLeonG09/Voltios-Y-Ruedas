@@ -2,7 +2,8 @@ package com.voltiosyruedas.taller.reservas.controller;
 
 import com.voltiosyruedas.taller.auditoria.service.AuditService;
 import com.voltiosyruedas.taller.auth.entity.Usuario;
-import org.springframework.security.access.AccessDeniedException;
+import com.voltiosyruedas.taller.auth.security.SecurityUtils;
+import com.voltiosyruedas.taller.common.exception.ApiException;
 import com.voltiosyruedas.taller.notificaciones.service.NotificacionService;
 import com.voltiosyruedas.taller.reservas.dto.ReservaRequest;
 import com.voltiosyruedas.taller.reservas.dto.ReservaResponse;
@@ -13,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -45,7 +47,7 @@ public class ReservaController {
     @GetMapping("/mis-reservas")
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<List<ReservaResponse>> misReservas(Authentication authentication) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         List<ReservaResponse> respuesta = reservaService.listarPorCliente(usuario).stream()
                 .map(reservaService::toResponse)
                 .toList();
@@ -77,7 +79,7 @@ public class ReservaController {
     @PostMapping
     @PreAuthorize("hasAnyRole('CLIENTE', 'ADMIN', 'JEFE_TALLER', 'MECANICO')")
     public ResponseEntity<ReservaResponse> crear(Authentication authentication, @Valid @RequestBody ReservaRequest request) {
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         Reserva creada = reservaService.crear(usuario, request);
         notificacionService.notificarAStaff("Nueva reserva",
                 usuario.getNombreCompleto() + " ha solicitado una cita", "reserva");
@@ -132,10 +134,7 @@ public class ReservaController {
     }
 
     private void validarAcceso(Authentication authentication, Reserva reserva) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof Usuario)) {
-            return;
-        }
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
         boolean esStaff = List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(rol);
         boolean esDueno = reserva.getCliente() != null && reserva.getCliente().getId().equals(usuario.getId());
@@ -145,10 +144,7 @@ public class ReservaController {
     }
 
     private void validarAccesoEdicion(Authentication authentication, Long id) {
-        if (authentication == null || !(authentication.getPrincipal() instanceof Usuario)) {
-            return;
-        }
-        Usuario usuario = (Usuario) authentication.getPrincipal();
+        Usuario usuario = SecurityUtils.requerirUsuario(authentication);
         String rol = usuario.getRol() != null ? usuario.getRol().getNombre() : "";
         boolean esStaff = List.of("ADMIN", "JEFE_TALLER", "MECANICO").contains(rol);
         if (esStaff) {
@@ -160,7 +156,7 @@ public class ReservaController {
             throw new AccessDeniedException("No tiene permisos sobre esta reserva");
         }
         if (ESTADOS_NO_EDITABLES.contains(reserva.getEstado())) {
-            throw new IllegalArgumentException("No se puede modificar una reserva cancelada o completada");
+            throw ApiException.badRequest("No se puede modificar una reserva cancelada o completada");
         }
     }
 }

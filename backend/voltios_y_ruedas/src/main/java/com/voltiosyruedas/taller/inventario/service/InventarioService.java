@@ -1,6 +1,8 @@
 package com.voltiosyruedas.taller.inventario.service;
 
+import com.voltiosyruedas.taller.common.exception.ApiException;
 import com.voltiosyruedas.taller.inventario.dto.InventarioRequest;
+import com.voltiosyruedas.taller.inventario.dto.InventarioResponse;
 import com.voltiosyruedas.taller.inventario.entity.Inventario;
 import com.voltiosyruedas.taller.inventario.repository.InventarioRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,18 +38,39 @@ public class InventarioService {
 
     public Inventario obtenerPorId(Long id) {
         return inventarioRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Repuesto no encontrado con ID: " + id));
+                .orElseThrow(() -> ApiException.notFound("Repuesto no encontrado"));
     }
 
     public Inventario obtenerPorCodigo(String codigo) {
         return inventarioRepository.findByCodigo(codigo)
-                .orElseThrow(() -> new RuntimeException("Repuesto no encontrado con código: " + codigo));
+                .orElseThrow(() -> ApiException.notFound("Repuesto no encontrado"));
+    }
+
+    public InventarioResponse toResponse(Inventario inventario) {
+        return InventarioResponse.builder()
+                .id(inventario.getId())
+                .codigo(inventario.getCodigo())
+                .nombre(inventario.getNombre())
+                .descripcion(inventario.getDescripcion())
+                .categoria(inventario.getCategoria())
+                .marca(inventario.getMarca())
+                .modelo(inventario.getModelo())
+                .stockActual(inventario.getStockActual())
+                .stockMinimo(inventario.getStockMinimo())
+                .precioCompra(inventario.getPrecioCompra())
+                .precioVenta(inventario.getPrecioVenta())
+                .ubicacion(inventario.getUbicacion())
+                .proveedor(inventario.getProveedor())
+                .activo(inventario.getActivo())
+                .fechaCreacion(inventario.getFechaCreacion())
+                .fechaActualizacion(inventario.getFechaActualizacion())
+                .build();
     }
 
     @Transactional
     public Inventario crear(InventarioRequest request) {
         if (inventarioRepository.findByCodigo(request.getCodigo()).isPresent()) {
-            throw new RuntimeException("Ya existe un repuesto con ese código");
+            throw ApiException.conflict("Ya existe un repuesto con ese código");
         }
 
         Inventario inventario = Inventario.builder()
@@ -75,7 +98,7 @@ public class InventarioService {
 
         if (!inventario.getCodigo().equals(request.getCodigo())) {
             if (inventarioRepository.findByCodigo(request.getCodigo()).isPresent()) {
-                throw new RuntimeException("Ya existe un repuesto con ese código");
+                throw ApiException.conflict("Ya existe un repuesto con ese código");
             }
             inventario.setCodigo(request.getCodigo());
         }
@@ -85,7 +108,7 @@ public class InventarioService {
         inventario.setCategoria(request.getCategoria());
         inventario.setMarca(request.getMarca());
         inventario.setModelo(request.getModelo());
-        
+
         if (request.getStockActual() != null) {
             inventario.setStockActual(request.getStockActual());
         }
@@ -100,7 +123,7 @@ public class InventarioService {
         }
         inventario.setUbicacion(request.getUbicacion());
         inventario.setProveedor(request.getProveedor());
-        
+
         if (request.getActivo() != null) {
             inventario.setActivo(request.getActivo());
         }
@@ -112,11 +135,11 @@ public class InventarioService {
     public Inventario ajustarStock(Long id, Integer cantidad) {
         Inventario inventario = obtenerPorId(id);
         int nuevoStock = inventario.getStockActual() + cantidad;
-        
+
         if (nuevoStock < 0) {
-            throw new RuntimeException("El stock no puede ser negativo");
+            throw ApiException.badRequest("El stock no puede ser negativo");
         }
-        
+
         inventario.setStockActual(nuevoStock);
         return inventarioRepository.save(inventario);
     }
