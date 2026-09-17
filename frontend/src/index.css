@@ -186,6 +186,38 @@
     box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
   }
 
+  /* Chrome de navegación (sidebar/header): más opaco, legible en móvil */
+  .glass-chrome {
+    position: relative;
+    isolation: isolate;
+    background:
+      linear-gradient(
+        160deg,
+        rgb(255 255 255 / 0.92) 0%,
+        rgb(255 255 255 / 0.86) 100%
+      );
+    backdrop-filter: blur(18px) saturate(1.15);
+    -webkit-backdrop-filter: blur(18px) saturate(1.15);
+    border: 1px solid rgb(255 255 255 / 0.55);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.4) inset,
+      0 6px 20px rgb(26 25 23 / 0.08);
+  }
+  html.dark .glass-chrome {
+    background:
+      linear-gradient(
+        160deg,
+        rgb(38 37 35 / 0.94) 0%,
+        rgb(26 25 23 / 0.9) 100%
+      );
+    backdrop-filter: blur(20px) saturate(1.1);
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+    border-color: rgb(255 255 255 / 0.12);
+    box-shadow:
+      0 1px 0 rgb(255 255 255 / 0.06) inset,
+      0 8px 24px rgb(0 0 0 / 0.4);
+  }
+
   .app-shell {
     background:
       radial-gradient(ellipse 80% 50% at 10% -10%, rgb(22 163 74 / 0.06), transparent 55%),

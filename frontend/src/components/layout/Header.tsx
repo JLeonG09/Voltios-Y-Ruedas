@@ -147,7 +147,7 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
   const nombreVisible = user?.nombreCompleto || user?.nombre || 'Usuario';
 
   return (
-    <header className="sticky top-0 z-30 glass-panel rounded-none border-x-0 border-t-0">
+    <header className="sticky top-0 z-30 glass-chrome rounded-none border-x-0 border-t-0">
       <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center gap-2">
           <button

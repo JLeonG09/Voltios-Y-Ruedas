@@ -134,11 +134,11 @@ public class SecurityConfig {
             config.setAllowCredentials(false);
         } else {
             // Lista explícita: coincidencia exacta y credenciales permitidas.
-            config.setAllowedOrigins(orígenes);
+            config.setAllowedOriginPatterns(orígenes);
             config.setAllowCredentials(true);
         }
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "ngrok-skip-browser-warning"));
+        config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setMaxAge(3600L);
 

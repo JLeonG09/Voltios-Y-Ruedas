@@ -42,3 +42,8 @@ Voltios y Ruedas/.obsidian/
 .gradle/
 build/
 EOF
+.vercel
+.env
+.env.local
+.env.*.local
+!.env.example
