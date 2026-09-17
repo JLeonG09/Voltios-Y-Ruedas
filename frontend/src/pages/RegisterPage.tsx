@@ -143,8 +143,8 @@ export const RegisterPage = () => {
             </button>
           }
           helperText={
-            password.length > 0 && password.length < 6
-              ? "Mínimo 6 caracteres"
+            password.length > 0 && password.length < 8
+              ? "Mínimo 8 caracteres"
               : undefined
           }
           error={errors.password?.message}

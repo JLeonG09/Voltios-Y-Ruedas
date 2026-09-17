@@ -240,8 +240,8 @@ export const ConfiguracionPage = () => {
       addNotification({ type: 'error', title: 'Error', message: 'Las contraseñas no coinciden' });
       return;
     }
-    if (data.passwordNueva.length < 6) {
-      addNotification({ type: 'error', title: 'Error', message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+    if (data.passwordNueva.length < 8) {
+      addNotification({ type: 'error', title: 'Error', message: 'La nueva contraseña debe tener al menos 8 caracteres' });
       return;
     }
     setSaving(true);
@@ -393,7 +393,7 @@ export const ConfiguracionPage = () => {
                 error={errors.passwordActual?.message}
               />
               <Input
-                {...register('passwordNueva', { required: 'Nueva contraseña requerida', minLength: { value: 6, message: 'Mínimo 6 caracteres' } })}
+                {...register('passwordNueva', { required: 'Nueva contraseña requerida', minLength: { value: 8, message: 'Mínimo 8 caracteres' } })}
                 type={visiblePassword.nueva ? 'text' : 'password'}
                 label="Nueva contraseña"
                 placeholder="••••••••"
@@ -413,9 +413,9 @@ export const ConfiguracionPage = () => {
               {passwordNueva && (
                 <div className="text-sm text-surface-500 dark:text-surface-400">
                   Fuerza: <span className={
-                    passwordNueva.length < 6 ? 'text-danger-600 dark:text-danger-400' :
+                    passwordNueva.length < 8 ? 'text-danger-600 dark:text-danger-400' :
                       passwordNueva.length < 10 ? 'text-accent-600' : 'text-brand-600'
-                  }>{passwordNueva.length < 6 ? 'Débil' : passwordNueva.length < 10 ? 'Media' : 'Fuerte'}</span>
+                  }>{passwordNueva.length < 8 ? 'Débil' : passwordNueva.length < 10 ? 'Media' : 'Fuerte'}</span>
                 </div>
               )}
               <Button type="submit" loading={saving}>

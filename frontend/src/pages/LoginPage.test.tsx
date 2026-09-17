@@ -42,7 +42,7 @@ const enviarLogin = () => {
   fireEvent.change(screen.getByLabelText('Contraseña'), {
     target: { value: 'secreto123' },
   });
-  fireEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+  fireEvent.click(screen.getByRole('button', { name: /iniciar sesión|ingresando/i }));
 };
 
 describe('LoginPage', () => {
@@ -59,11 +59,24 @@ describe('LoginPage', () => {
   it('CLIENTE entra a /mi-vehiculo, no a /dashboard', async () => {
     vi.mocked(authService.login).mockResolvedValue(jwt('CLIENTE'));
     renderLogin();
+    expect(screen.getByText('Voltios y Ruedas')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Iniciar sesión' })).toBeInTheDocument();
     enviarLogin();
     await waitFor(() => {
       expect(screen.getByText('Destino cliente')).toBeInTheDocument();
     });
     expect(screen.queryByText('Destino staff')).not.toBeInTheDocument();
+  });
+
+  it('muestra error de API en el formulario', async () => {
+    vi.mocked(authService.login).mockRejectedValue(new Error('Credenciales inválidas'));
+    renderLogin();
+    enviarLogin();
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Credenciales inválidas');
+    });
+    expect(screen.queryByText('Destino staff')).not.toBeInTheDocument();
+    expect(screen.queryByText('Destino cliente')).not.toBeInTheDocument();
   });
 
   it('MECANICO entra a /dashboard', async () => {

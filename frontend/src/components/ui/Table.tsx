@@ -77,9 +77,9 @@ export function Table<T>({
 
   if (loading) {
     return (
-      <div className={`overflow-x-auto rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 ${className}`} {...props}>
+      <div className={`overflow-x-auto rounded-xl glass-panel-soft ${className}`} {...props}>
         <table className="w-full">
-          <thead className="bg-surface-50 dark:bg-surface-800">
+          <thead className="bg-white/25 dark:bg-white/5">
             <tr>
               {columns.map((column) => (
                 <th
@@ -92,12 +92,12 @@ export function Table<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-surface-900 divide-y divide-surface-100 dark:divide-surface-800">
+          <tbody className="divide-y divide-white/30 dark:divide-white/10">
             {Array.from({ length: 5 }).map((_, i) => (
               <tr key={i}>
                 {columns.map((column) => (
                   <td key={column.key} className={`px-4 py-4 ${alignClasses[column.align || 'left']}`}>
-                    <div className="h-4 bg-surface-200 dark:bg-surface-700 rounded animate-pulse w-3/4" />
+                    <div className="h-4 bg-surface-200/70 dark:bg-surface-700/70 rounded animate-pulse w-3/4" />
                   </td>
                 ))}
               </tr>
@@ -110,22 +110,22 @@ export function Table<T>({
 
   if (data.length === 0) {
     return (
-      <div className={`text-center py-12 ${className}`}>
-        {emptyIcon && <div className="w-16 h-16 mx-auto text-surface-300 dark:text-surface-600 mb-4">{emptyIcon}</div>}
-        <p className="text-surface-500 dark:text-surface-400">{emptyMessage}</p>
+      <div className={`empty-state ${className}`}>
+        {emptyIcon && <div className="empty-state-icon">{emptyIcon}</div>}
+        <p className="empty-state-text mb-0">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className={`rounded-xl border border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-900 ${className}`} {...props}>
+    <div className={`rounded-xl glass-panel-soft ${className}`} {...props}>
       {/* Vista móvil: cada fila se renderiza como una tarjeta apilable */}
-      <div className="md:hidden divide-y divide-surface-100 dark:divide-surface-800">
+      <div className="md:hidden divide-y divide-white/30 dark:divide-white/10">
         {data.map((item, index) => (
           <div
             key={keyExtractor(item)}
             onClick={() => onRowClick?.(item)}
-            className={`px-4 py-3 ${hoverable ? 'transition-colors hover:bg-surface-50 dark:hover:bg-surface-800/50' : ''} ${striped && index % 2 === 1 ? 'bg-surface-50/50 dark:bg-surface-800/40' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
+            className={`px-4 py-3 ${hoverable ? 'transition-colors hover:bg-white/35 dark:hover:bg-white/5' : ''} ${striped && index % 2 === 1 ? 'bg-white/20 dark:bg-white/[0.03]' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
           >
             {columns
               .filter((column) => column.key !== 'actions')
@@ -153,12 +153,12 @@ export function Table<T>({
       {/* Tabla en pantallas ≥ md */}
       <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-surface-50 dark:bg-surface-800">
+          <thead className="bg-white/25 dark:bg-white/5">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none ${column.sortable && sortable ? 'hover:bg-surface-100 dark:hover:bg-surface-700' : ''} ${column.className || ''} ${alignClasses[column.align || 'left']}`}
+                  className={`px-4 py-3 text-left text-xs font-semibold text-surface-500 dark:text-surface-400 uppercase tracking-wider cursor-pointer select-none ${column.sortable && sortable ? 'hover:bg-white/30 dark:hover:bg-white/10' : ''} ${column.className || ''} ${alignClasses[column.align || 'left']}`}
                   style={{ width: column.width }}
                   onClick={() => handleSort(column.key)}
                 >
@@ -170,11 +170,11 @@ export function Table<T>({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-surface-900 divide-y divide-surface-100 dark:divide-surface-800">
+          <tbody className="divide-y divide-white/30 dark:divide-white/10">
             {data.map((item, index) => (
               <tr
                 key={keyExtractor(item)}
-                className={`${hoverable ? 'transition-colors hover:bg-surface-50 dark:hover:bg-surface-800' : ''} ${striped && index % 2 === 1 ? 'bg-surface-50/50 dark:bg-surface-800/40' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
+                className={`${hoverable ? 'transition-colors hover:bg-white/35 dark:hover:bg-white/5' : ''} ${striped && index % 2 === 1 ? 'bg-white/20 dark:bg-white/[0.03]' : ''} ${rowClassName ? rowClassName(item) : ''} ${onRowClick ? 'cursor-pointer' : ''}`}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((column) => (

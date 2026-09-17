@@ -1,5 +1,10 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * Tokens de producto — Voltios y Ruedas.
+ * Tipografía, radios, sombras y brand verde del taller.
+ * Las sombras leen variables CSS para light/dark sin romper contraste.
+ */
 export default {
   darkMode: 'class',
   content: [
@@ -23,17 +28,17 @@ export default {
           950: '#052e16',
         },
         surface: {
-          50: '#fafafa',
-          100: '#f5f5f5',
-          200: '#e5e5e5',
-          300: '#d4d4d4',
-          400: '#a3a3a3',
-          500: '#737373',
-          600: '#525252',
-          700: '#404040',
-          800: '#262626',
-          900: '#171717',
-          950: '#0a0a0a',
+          50: '#f7f7f5',
+          100: '#f0efec',
+          200: '#e4e2dd',
+          300: '#d0cdc6',
+          400: '#a09c93',
+          500: '#737068',
+          600: '#57544e',
+          700: '#403e3a',
+          800: '#2a2926',
+          900: '#1a1917',
+          950: '#0d0c0b',
         },
         accent: {
           50: '#fffbeb',
@@ -63,18 +68,40 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+        sans: [
+          'Plus Jakarta Sans',
+          'Segoe UI',
+          'system-ui',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'sans-serif',
+        ],
+        mono: ['IBM Plex Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      fontSize: {
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.025em' }],
+      },
+      spacing: {
+        '4.5': '1.125rem',
+        '13': '3.25rem',
+        '15': '3.75rem',
+        '18': '4.5rem',
       },
       boxShadow: {
-        'card': '0 1px 3px 0 rgb(0 0 0 / 0.08), 0 1px 2px -1px rgb(0 0 0 / 0.08)',
-        'card-hover': '0 4px 6px -1px rgb(0 0 0 / 0.08), 0 2px 4px -2px rgb(0 0 0 / 0.08)',
-        'elevated': '0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.08)',
-        'modal': '0 25px 50px -12px rgb(0 0 0 / 0.15)',
+        card: 'var(--shadow-card)',
+        'card-hover': 'var(--shadow-card-hover)',
+        elevated: 'var(--shadow-elevated)',
+        modal: 'var(--shadow-modal)',
       },
       borderRadius: {
-        'xl': '1rem',
-        '2xl': '1.5rem',
+        lg: 'var(--radius-lg)',
+        xl: 'var(--radius-xl)',
+        '2xl': 'var(--radius-2xl)',
+        '3xl': 'var(--radius-3xl)',
+      },
+      ringOffsetColor: {
+        DEFAULT: 'var(--color-bg)',
       },
       animation: {
         'fade-in': 'fadeIn 0.2s ease-out',

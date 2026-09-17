@@ -9,7 +9,11 @@ interface SwitchProps extends Omit<HTMLAttributes<HTMLInputElement>, 'type' | 'o
 export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
   ({ checked = false, onChange, disabled = false, className = '', ...props }, ref) => {
     return (
-      <label className={`inline-flex items-center cursor-pointer ${className}`}>
+      <label
+        className={
+          `inline-flex items-center ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'} ${className}`
+        }
+      >
         <input
           ref={ref}
           type="checkbox"
@@ -18,14 +22,25 @@ export const Switch = forwardRef<HTMLInputElement, SwitchProps>(
           onChange={(e: ChangeEvent<HTMLInputElement>) => onChange?.(e.target.checked)}
           disabled={disabled}
           className="sr-only peer"
+          aria-checked={checked}
           {...props}
         />
-        <div className={`relative w-11 h-6 rounded-full transition-colors ${
-          checked ? 'bg-brand-600' : 'bg-surface-300 dark:bg-surface-600'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}>
-          <span className={`inline-block h-5 w-5 rounded-full transition-transform ${
-            checked ? 'translate-x-5' : 'translate-x-0'
-          } bg-white shadow-md`} />
+        <div
+          className={
+            `relative w-11 h-6 rounded-full transition-colors duration-200 ` +
+            `peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2 ` +
+            `peer-focus-visible:ring-offset-[var(--color-bg)] peer-focus-visible:ring-brand-500 ` +
+            `dark:peer-focus-visible:ring-brand-400 ` +
+            (checked ? 'bg-brand-600 dark:bg-brand-500' : 'bg-surface-300 dark:bg-surface-600')
+          }
+        >
+          <span
+            className={
+              `absolute top-0.5 left-0.5 inline-block h-5 w-5 rounded-full bg-white shadow-md ` +
+              `transition-transform duration-200 ${checked ? 'translate-x-5' : 'translate-x-0'}`
+            }
+            aria-hidden="true"
+          />
         </div>
       </label>
     );

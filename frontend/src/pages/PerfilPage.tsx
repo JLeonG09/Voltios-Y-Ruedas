@@ -33,7 +33,7 @@ type PerfilFormData = z.infer<typeof perfilSchema>;
 const passwordSchema = z
   .object({
     passwordActual: z.string().min(1, 'La contraseña actual es obligatoria'),
-    nuevaPassword: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres').max(255),
+    nuevaPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres').max(255),
     confirmarPassword: z.string().min(1, 'Confirma la nueva contraseña'),
   })
   .refine((data) => data.nuevaPassword === data.confirmarPassword, {

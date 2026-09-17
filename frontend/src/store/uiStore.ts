@@ -53,10 +53,42 @@ const applyDarkClass = (dark: boolean) => {
   }
 };
 
+const esViewportMovil = (): boolean =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+
+const readSidebarOpen = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  if (esViewportMovil()) return false;
+  try {
+    const saved = localStorage.getItem('sidebarOpen');
+    if (saved === null) return true;
+    return JSON.parse(saved) === true;
+  } catch {
+    return true;
+  }
+};
+
+const persistSidebarOpen = (open: boolean) => {
+  if (esViewportMovil()) return;
+  try {
+    localStorage.setItem('sidebarOpen', JSON.stringify(open));
+  } catch {
+    // localStorage no disponible
+  }
+};
+
 export const useUIStore = create<UIState>((set) => ({
-  sidebarOpen: true,
-  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
-  setSidebarOpen: (open: boolean) => set({ sidebarOpen: open }),
+  sidebarOpen: readSidebarOpen(),
+  toggleSidebar: () =>
+    set((state) => {
+      const open = !state.sidebarOpen;
+      persistSidebarOpen(open);
+      return { sidebarOpen: open };
+    }),
+  setSidebarOpen: (open: boolean) => {
+    persistSidebarOpen(open);
+    set({ sidebarOpen: open });
+  },
 
   tema: readTema(),
   setTema: (tema: Tema) => {

@@ -1,7 +1,15 @@
+import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Calendar, ClipboardList, Package, Users, Settings,
-  Car, History, Wrench, ChevronRight,
+  LayoutDashboard,
+  Calendar,
+  ClipboardList,
+  Package,
+  Users,
+  Settings,
+  Car,
+  History,
+  PanelLeftClose,
 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import { ROLES, ROLES_CLIENTE, ROLES_GESTION, ROLES_STAFF, rolPermitido } from '../../utils/roles';
@@ -10,14 +18,14 @@ import type { NombreRol } from '../../types';
 const staffNav: { name: string; href: string; icon: typeof LayoutDashboard; roles: readonly NombreRol[] }[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, roles: ROLES_STAFF },
   { name: 'Reservas', href: '/reservas', icon: Calendar, roles: ROLES_STAFF },
-  { name: 'Ordenes', href: '/ordenes', icon: ClipboardList, roles: ROLES_STAFF },
+  { name: 'Órdenes', href: '/ordenes', icon: ClipboardList, roles: ROLES_STAFF },
   { name: 'Inventario', href: '/inventario', icon: Package, roles: ROLES_STAFF },
   { name: 'Usuarios', href: '/usuarios', icon: Users, roles: ROLES_GESTION },
-  { name: 'Configuracion', href: '/configuracion', icon: Settings, roles: ROLES_GESTION },
+  { name: 'Configuración', href: '/configuracion', icon: Settings, roles: ROLES_GESTION },
 ];
 
 const clienteNav: { name: string; href: string; icon: typeof LayoutDashboard; roles: readonly NombreRol[] }[] = [
-  { name: 'Mi vehiculo', href: '/mi-vehiculo', icon: Car, roles: ROLES_CLIENTE },
+  { name: 'Mi vehículo', href: '/mi-vehiculo', icon: Car, roles: ROLES_CLIENTE },
   { name: 'Mi historial', href: '/mi-historial', icon: History, roles: ROLES_CLIENTE },
   { name: 'Mis reservas', href: '/mis-reservas', icon: Calendar, roles: ROLES_CLIENTE },
 ];
@@ -26,66 +34,129 @@ interface SidebarProps {
   userRole: string;
 }
 
+const esRutaActiva = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
+const esMovil = () =>
+  typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+
 export const Sidebar = ({ userRole }: SidebarProps) => {
-  const { sidebarOpen, toggleSidebar } = useUIStore();
+  const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
   const location = useLocation();
   const items = userRole === ROLES.CLIENTE ? clienteNav : staffNav;
   const filteredNavigation = items.filter((item) => rolPermitido(userRole, item.roles));
 
+  // En móvil se cierra al navegar; en desktop se conserva el estado.
+  useEffect(() => {
+    if (esMovil()) setSidebarOpen(false);
+  }, [location.pathname, setSidebarOpen]);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSidebarOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [sidebarOpen, setSidebarOpen]);
+
   return (
     <>
       <aside
-        className={`fixed top-0 left-0 z-40 h-screen w-64 bg-white dark:bg-surface-900 border-r border-surface-200 dark:border-surface-800 transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-        aria-label="Navegacion principal"
+        id="app-sidebar"
+        className={
+          `fixed top-0 left-0 z-40 flex h-dvh w-[min(18rem,88vw)] flex-col glass-panel ` +
+          `transition-transform duration-300 ease-out ` +
+          `${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`
+        }
+        aria-label="Navegación principal"
+        aria-hidden={!sidebarOpen}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between h-16 px-4 border-b border-surface-200 dark:border-surface-800">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-brand-600 flex items-center justify-center">
-                <span className="text-white font-bold text-xl">VyR</span>
-              </div>
-              <span className="font-semibold text-surface-900 dark:text-white text-lg hidden sm:block">Voltios y Ruedas</span>
-            </div>
-            <button
-              type="button"
-              className="lg:hidden p-2 rounded-xl text-surface-500 hover:text-surface-700 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-surface-800 transition-colors"
-              onClick={toggleSidebar}
-              aria-label="Cerrar menu"
-            >
-              <ChevronRight className="h-6 w-6" />
-            </button>
+        <div className="flex h-14 shrink-0 items-center gap-3 border-b border-white/35 px-4 dark:border-white/10">
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-bold tracking-tight text-white shadow-card dark:bg-brand-500 dark:text-surface-950"
+            aria-hidden="true"
+          >
+            VyR
           </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold tracking-tight text-surface-900 dark:text-surface-50">
+              Voltios y Ruedas
+            </p>
+            <p className="truncate text-[11px] text-surface-500 dark:text-surface-400">Taller</p>
+          </div>
+          <button
+            type="button"
+            className={
+              `rounded-xl p-2 text-surface-500 transition-colors ` +
+              `hover:bg-white/50 hover:text-surface-800 ` +
+              `dark:text-surface-400 dark:hover:bg-white/10 dark:hover:text-surface-100 ` +
+              `focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ` +
+              `focus-visible:ring-offset-2 focus-visible:ring-offset-transparent`
+            }
+            onClick={toggleSidebar}
+            aria-label="Ocultar menú"
+          >
+            <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </div>
 
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Menu principal">
+        <nav className="flex-1 overflow-y-auto px-3 py-4" aria-label="Menú principal">
+          <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
+            Menú
+          </p>
+          <ul className="space-y-0.5">
             {filteredNavigation.map((item) => {
-              const isActive = location.pathname === item.href || location.pathname.startsWith(`${item.href}/`);
+              const isActive = esRutaActiva(location.pathname, item.href);
               return (
-                <NavLink
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${isActive ? 'bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-300 shadow-card' : 'text-surface-600 dark:text-surface-400 hover:text-surface-900 dark:hover:text-white hover:bg-surface-50 dark:hover:bg-surface-800'}`}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                  <span>{item.name}</span>
-                </NavLink>
+                <li key={item.href}>
+                  <NavLink
+                    to={item.href}
+                    end={item.href === '/dashboard' || item.href === '/mi-vehiculo'}
+                    tabIndex={sidebarOpen ? 0 : -1}
+                    className={
+                      `group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium ` +
+                      `transition-colors duration-150 ` +
+                      `focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ` +
+                      `focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ` +
+                      (isActive
+                        ? 'bg-brand-500/15 text-brand-800 dark:bg-brand-400/15 dark:text-brand-200'
+                        : 'text-surface-600 hover:bg-white/55 hover:text-surface-900 ' +
+                          'dark:text-surface-400 dark:hover:bg-white/8 dark:hover:text-surface-100')
+                    }
+                    aria-current={isActive ? 'page' : undefined}
+                  >
+                    {isActive && (
+                      <span
+                        className="absolute inset-y-1.5 left-0 w-1 rounded-full bg-brand-600 dark:bg-brand-400"
+                        aria-hidden="true"
+                      />
+                    )}
+                    <item.icon
+                      className={
+                        `h-[1.15rem] w-[1.15rem] shrink-0 ${
+                          isActive
+                            ? 'text-brand-700 dark:text-brand-300'
+                            : 'text-surface-400 group-hover:text-surface-600 dark:text-surface-500 dark:group-hover:text-surface-300'
+                        }`
+                      }
+                      aria-hidden="true"
+                    />
+                    <span className="truncate">{item.name}</span>
+                  </NavLink>
+                </li>
               );
             })}
-          </nav>
-
-          <div className="p-3 border-t border-surface-200 dark:border-surface-800">
-            <div className="px-3 py-2 flex items-center gap-2 text-xs text-surface-500 dark:text-surface-400">
-              <Wrench className="h-3.5 w-3.5" /> Taller Voltios y Ruedas
-            </div>
-          </div>
-        </div>
+          </ul>
+        </nav>
       </aside>
 
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden animate-fade-in"
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-surface-950/35 backdrop-blur-[3px] lg:hidden animate-fade-in"
           onClick={toggleSidebar}
-          aria-hidden="true"
+          aria-label="Cerrar menú"
         />
       )}
     </>

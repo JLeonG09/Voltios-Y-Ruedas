@@ -230,47 +230,55 @@ export const OrdenesPage = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">Órdenes de trabajo</h1>
-          <p className="text-surface-500 dark:text-surface-400 mt-1">Gestiona las órdenes del taller</p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
+            Taller
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
+            Órdenes de trabajo
+          </h1>
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
+            Gestiona las órdenes del taller
+          </p>
         </div>
         {isAdminOrJefe && (
-          <Button onClick={handleNew}>
-            <Plus className="h-4 w-4" />
+          <Button onClick={handleNew} className="shrink-0 self-start sm:self-auto">
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Nueva orden
           </Button>
         )}
-      </div>
+      </header>
 
-      <Card subtitle="Listado de órdenes de trabajo">
-        <CardContent className="p-0">
-          <div className="p-4 border-b border-surface-100 dark:border-surface-800">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-surface-400 dark:text-surface-500" />
-                <input
-                  type="text"
-                  placeholder="Buscar por número, cliente, descripción..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 border border-surface-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 dark:border-surface-700 dark:bg-surface-800 dark:text-white dark:placeholder:text-surface-500"
-                />
-              </div>
+      <Card className="overflow-hidden" padding="none">
+        <div className="border-b border-surface-100 px-4 py-4 dark:border-surface-800 sm:px-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+            <div className="min-w-0 flex-1">
+              <Input
+                label="Buscar"
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Número, cliente, descripción…"
+                leftIcon={<Search className="h-5 w-5" />}
+              />
+            </div>
+            <div className="w-full lg:w-56">
               <Select
-                  value={estadoFilter}
-                  onChange={(e) => setEstadoFilter(e.target.value)}
-                  options={[
-                    { value: '', label: 'Todos los estados' },
-                    ...estadosOrden.map(e => ({ value: e, label: getEstadoLabel(e) })),
-                  ]}
-                  placeholder="Filtrar estado"
-                  leftIcon={<Filter className="h-5 w-5" />}
-                  className="w-full sm:w-48"
-                />
+                label="Estado"
+                value={estadoFilter}
+                onChange={(e) => setEstadoFilter(e.target.value)}
+                options={[
+                  { value: '', label: 'Todos' },
+                  ...estadosOrden.map((e) => ({ value: e, label: getEstadoLabel(e) })),
+                ]}
+                leftIcon={<Filter className="h-5 w-5" />}
+              />
             </div>
           </div>
+        </div>
 
+        <CardContent className="p-0">
           <Table
             columns={columns}
             data={ordenes}
@@ -279,7 +287,7 @@ export const OrdenesPage = () => {
             hoverable
             striped
             emptyMessage="No hay órdenes registradas"
-            emptyIcon={<ClipboardList className="w-12 h-12 text-surface-300 dark:text-surface-600" />}
+            emptyIcon={<ClipboardList className="h-12 w-12" />}
           />
 
           <Pagination

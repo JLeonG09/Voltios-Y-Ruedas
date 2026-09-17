@@ -216,7 +216,7 @@ export const DashboardPage = () => {
       title: "Reservas hoy",
       value: stats.reservasHoy,
       icon: <Calendar className="h-6 w-6" />,
-      color: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300",
+      color: "bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200",
     },
     {
       title: "Órdenes pendientes",
@@ -228,7 +228,7 @@ export const DashboardPage = () => {
       title: "En trabajo",
       value: stats.ordenesTrabajando,
       icon: <Wrench className="h-6 w-6" />,
-      color: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300",
+      color: "bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300",
     },
     {
       title: "Stock bajo",
@@ -253,7 +253,7 @@ export const DashboardPage = () => {
             title: "Clientes nuevos",
             value: stats.clientesNuevos,
             icon: <Users className="h-6 w-6" />,
-            color: "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300",
+            color: "bg-surface-100 text-surface-700 dark:bg-surface-800 dark:text-surface-200",
           },
         ]
       : []),
@@ -346,16 +346,19 @@ export const DashboardPage = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-surface-900 dark:text-white">
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-surface-400 dark:text-surface-500">
+            {isCliente ? "Cliente" : isMecanico ? "Taller" : "Operaciones"}
+          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight text-surface-900 dark:text-surface-50">
             {isCliente
               ? "Mis reservas"
               : isMecanico
                 ? "Mis órdenes"
                 : "Dashboard"}
           </h1>
-          <p className="text-surface-500 dark:text-surface-400 mt-1">
+          <p className="mt-1 text-sm text-surface-500 dark:text-surface-400">
             {isCliente
               ? "Resumen de tus citas programadas"
               : isMecanico
@@ -364,12 +367,12 @@ export const DashboardPage = () => {
           </p>
         </div>
         {isAdminOrJefe && (
-          <Button variant="primary" size="md" onClick={() => navigate("/ordenes")}>
-            <TrendingUp className="h-4 w-4" />
+          <Button variant="primary" size="md" onClick={() => navigate("/ordenes")} className="shrink-0 self-start sm:self-auto">
+            <TrendingUp className="h-4 w-4" aria-hidden="true" />
             Ver órdenes
           </Button>
         )}
-      </div>
+      </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {statCards.map((stat, index) => (

@@ -30,6 +30,25 @@ describe('uiStore', () => {
     expect(useUIStore.getState().darkMode).toBe(false);
   });
 
+  it('toggleSidebar persiste preferencia en escritorio', () => {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+      }),
+    });
+    useUIStore.setState({ sidebarOpen: true });
+    useUIStore.getState().toggleSidebar();
+    expect(useUIStore.getState().sidebarOpen).toBe(false);
+    expect(localStorage.getItem('sidebarOpen')).toBe('false');
+    useUIStore.getState().toggleSidebar();
+    expect(useUIStore.getState().sidebarOpen).toBe(true);
+    expect(localStorage.getItem('sidebarOpen')).toBe('true');
+  });
+
   it('addNotification y removeNotification gestionan el arreglo', () => {
     useUIStore.getState().addNotification({ type: 'info', title: 'Aviso' });
     expect(useUIStore.getState().notifications).toHaveLength(1);

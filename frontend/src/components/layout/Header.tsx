@@ -1,11 +1,10 @@
-import { Menu, User, LogOut, Bell, ChevronDown, Moon, Sun, Home, Inbox } from 'lucide-react';
+import { PanelLeft, PanelLeftClose, User, LogOut, Bell, ChevronDown, Moon, Sun, Inbox } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
 import { useNavigate } from 'react-router-dom';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { notificacionesService } from '../../services/notificacionesService';
 import { authService } from '../../services/authService';
-import { rutaInicioPorRol } from '../../utils/roles';
 import type { Notificacion } from '../../types';
 
 interface HeaderProps {
@@ -24,15 +23,26 @@ const formatearTiempo = (fecha: string): string => {
   return new Date(fecha).toLocaleDateString('es-CR', { day: '2-digit', month: 'short' });
 };
 
+const iconBtn =
+  `relative inline-flex h-10 w-10 items-center justify-center rounded-xl ` +
+  `text-surface-500 transition-colors ` +
+  `hover:bg-white/55 hover:text-surface-800 ` +
+  `dark:text-surface-400 dark:hover:bg-white/10 dark:hover:text-surface-100 ` +
+  `focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ` +
+  `focus-visible:ring-offset-2 focus-visible:ring-offset-transparent ` +
+  `dark:focus-visible:ring-brand-400`;
+
 export const Header = ({ onMenuClick }: HeaderProps) => {
   const { user, logout, refreshToken } = useAuthStore();
-  const { darkMode, toggleDarkMode } = useUIStore();
+  const { darkMode, toggleDarkMode, sidebarOpen } = useUIStore();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notifications, setNotifications] = useState<Notificacion[]>([]);
   const [noLeidas, setNoLeidas] = useState(0);
   const [loadingNotif, setLoadingNotif] = useState(true);
+  const notifRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef<HTMLDivElement>(null);
 
   const cargarNotificaciones = useCallback(async () => {
     try {
@@ -76,6 +86,31 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
     };
   }, [user]);
 
+  useEffect(() => {
+    if (!showNotifications && !showUserMenu) return;
+    const onPointer = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (showNotifications && notifRef.current && !notifRef.current.contains(target)) {
+        setShowNotifications(false);
+      }
+      if (showUserMenu && userRef.current && !userRef.current.contains(target)) {
+        setShowUserMenu(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowNotifications(false);
+        setShowUserMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [showNotifications, showUserMenu]);
+
   const handleLogout = async () => {
     logout();
     try {
@@ -84,10 +119,6 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
       // El cierre local ya se aplicó; el backend termina invalidando el token igual.
     }
     navigate('/');
-  };
-
-  const handleHome = () => {
-    navigate(rutaInicioPorRol(user?.rol?.nombre));
   };
 
   const marcarLeida = async (id: number) => {
@@ -113,89 +144,135 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
     }
   };
 
+  const nombreVisible = user?.nombreCompleto || user?.nombre || 'Usuario';
+
   return (
-    <header className="sticky top-0 z-30 bg-white/80 dark:bg-surface-900/80 backdrop-blur-md border-b border-surface-200 dark:border-surface-800 shadow-sm">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 glass-panel rounded-none border-x-0 border-t-0">
+      <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-2">
           <button
             type="button"
-            className="lg:hidden p-2 rounded-xl text-surface-500 hover:text-surface-700 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-surface-800 transition-colors"
+            className={iconBtn}
             onClick={onMenuClick}
-            aria-label="Abrir menú"
+            aria-label={sidebarOpen ? 'Ocultar menú' : 'Mostrar menú'}
+            aria-controls="app-sidebar"
+            aria-expanded={sidebarOpen}
+            title={sidebarOpen ? 'Ocultar menú' : 'Mostrar menú'}
           >
-            <Menu className="h-6 w-6" />
+            {sidebarOpen ? (
+              <PanelLeftClose className="h-5 w-5" aria-hidden="true" />
+            ) : (
+              <PanelLeft className="h-5 w-5" aria-hidden="true" />
+            )}
           </button>
-          <button
-            type="button"
-            className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-sm text-surface-600 hover:text-surface-900 hover:bg-surface-100 dark:text-surface-300 dark:hover:text-white dark:hover:bg-surface-800 transition-colors"
-            onClick={handleHome}
-            aria-label="Inicio"
-          >
-            <Home className="h-4 w-4" />
-            Inicio
-          </button>
+          <div className={`min-w-0 ${sidebarOpen ? 'lg:hidden' : ''}`}>
+            <p className="truncate text-sm font-semibold tracking-tight text-surface-900 dark:text-surface-50">
+              Voltios y Ruedas
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="relative" ref={notifRef}>
             <button
               type="button"
-              className="relative p-2 rounded-xl text-surface-500 hover:text-surface-700 hover:bg-surface-100 transition-colors"
-              onClick={() => setShowNotifications(!showNotifications)}
+              className={iconBtn}
+              onClick={() => {
+                setShowNotifications((v) => !v);
+                setShowUserMenu(false);
+              }}
               aria-label="Notificaciones"
               aria-expanded={showNotifications}
+              aria-haspopup="true"
             >
-              <Bell className="h-6 w-6" />
+              <Bell className="h-5 w-5" aria-hidden="true" />
               {noLeidas > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-danger-500 text-white text-[10px] font-bold flex items-center justify-center">
+                <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-bold leading-none text-white">
                   {noLeidas > 99 ? '99+' : noLeidas}
                 </span>
               )}
             </button>
 
             {showNotifications && (
-              <div className="fixed right-4 top-16 w-[calc(100vw-2rem)] max-w-80 sm:absolute sm:right-0 sm:top-auto sm:mt-2 bg-white dark:bg-surface-900 rounded-xl shadow-lg border border-surface-200 dark:border-surface-700 py-1 z-50 animate-slide-down">
-                <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800 flex items-center justify-between">
-                  <h3 className="font-semibold text-surface-900 dark:text-white">Notificaciones</h3>
+              <div
+                className={
+                  `fixed right-3 top-[3.75rem] z-50 w-[calc(100vw-1.5rem)] max-w-80 overflow-hidden ` +
+                  `rounded-2xl border border-surface-200 bg-white shadow-elevated ` +
+                  `dark:border-surface-700 dark:bg-surface-900 ` +
+                  `sm:absolute sm:right-0 sm:top-auto sm:mt-2 animate-slide-down`
+                }
+                role="menu"
+                aria-label="Lista de notificaciones"
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-surface-100 px-4 py-3 dark:border-surface-800">
+                  <h3 className="text-sm font-semibold text-surface-900 dark:text-surface-50">Notificaciones</h3>
                   {noLeidas > 0 && (
                     <button
                       type="button"
-                      className="text-sm text-brand-600 hover:text-brand-700 dark:text-brand-300"
+                      className={
+                        `text-xs font-medium text-brand-700 hover:text-brand-800 ` +
+                        `dark:text-brand-300 dark:hover:text-brand-200 ` +
+                        `focus:outline-none focus-visible:underline`
+                      }
                       onClick={marcarTodas}
                     >
                       Marcar todas
                     </button>
                   )}
                 </div>
-                <div className="max-h-64 overflow-y-auto">
+                <div className="max-h-72 overflow-y-auto">
                   {loadingNotif && (
-                    <p className="px-4 py-6 text-center text-sm text-surface-400">Cargando…</p>
+                    <p className="px-4 py-8 text-center text-sm text-surface-400">Cargando…</p>
                   )}
                   {!loadingNotif && notifications.length === 0 && (
-                    <div className="px-4 py-8 text-center">
-                      <Inbox className="h-8 w-8 mx-auto mb-2 text-surface-300 dark:text-surface-600" />
+                    <div className="px-4 py-10 text-center">
+                      <Inbox className="mx-auto mb-2 h-8 w-8 text-surface-300 dark:text-surface-600" aria-hidden="true" />
                       <p className="text-sm text-surface-500 dark:text-surface-400">No tienes notificaciones</p>
                     </div>
                   )}
-                  {!loadingNotif && notifications.map((notif) => (
-                    <button
-                      key={notif.id}
-                      type="button"
-                      onClick={() => marcarLeida(notif.id)}
-                      className={`w-full px-4 py-3 text-left hover:bg-surface-50 dark:hover:bg-surface-800 transition-colors ${!notif.leida ? 'bg-brand-50/50 dark:bg-brand-900/20' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${!notif.leida ? 'bg-brand-500' : 'bg-surface-300 dark:bg-surface-600'}`} />
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium truncate ${!notif.leida ? 'text-surface-900 dark:text-white' : 'text-surface-700 dark:text-surface-300'}`}>{notif.titulo}</p>
-                          {notif.mensaje && (
-                            <p className="text-xs text-surface-500 dark:text-surface-400 mt-0.5 line-clamp-2">{notif.mensaje}</p>
-                          )}
-                          <p className="text-xs text-surface-400 dark:text-surface-500 mt-1">{formatearTiempo(notif.fecha)}</p>
+                  {!loadingNotif &&
+                    notifications.map((notif) => (
+                      <button
+                        key={notif.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => marcarLeida(notif.id)}
+                        className={
+                          `w-full px-4 py-3 text-left transition-colors ` +
+                          `hover:bg-surface-50 dark:hover:bg-surface-800/80 ` +
+                          `focus:outline-none focus-visible:bg-surface-50 dark:focus-visible:bg-surface-800 ` +
+                          `${!notif.leida ? 'bg-brand-50/40 dark:bg-brand-900/15' : ''}`
+                        }
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                              !notif.leida ? 'bg-brand-500' : 'bg-surface-300 dark:bg-surface-600'
+                            }`}
+                            aria-hidden="true"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className={`truncate text-sm font-medium ${
+                                !notif.leida
+                                  ? 'text-surface-900 dark:text-surface-50'
+                                  : 'text-surface-700 dark:text-surface-300'
+                              }`}
+                            >
+                              {notif.titulo}
+                            </p>
+                            {notif.mensaje && (
+                              <p className="mt-0.5 line-clamp-2 text-xs text-surface-500 dark:text-surface-400">
+                                {notif.mensaje}
+                              </p>
+                            )}
+                            <p className="mt-1 text-[11px] text-surface-400 dark:text-surface-500">
+                              {formatearTiempo(notif.fecha)}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
                 </div>
               </div>
             )}
@@ -203,54 +280,86 @@ export const Header = ({ onMenuClick }: HeaderProps) => {
 
           <button
             type="button"
-            className="p-2 rounded-xl text-surface-500 hover:text-surface-700 hover:bg-surface-100 dark:text-surface-400 dark:hover:text-white dark:hover:bg-surface-800 transition-colors"
+            className={iconBtn}
             onClick={toggleDarkMode}
             aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}
             title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
           >
-            {darkMode ? <Sun className="h-6 w-6" /> : <Moon className="h-6 w-6" />}
+            {darkMode ? <Sun className="h-5 w-5" aria-hidden="true" /> : <Moon className="h-5 w-5" aria-hidden="true" />}
           </button>
 
-          <div className="relative">
+          <div className="relative" ref={userRef}>
             <button
               type="button"
-              className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-              onClick={() => setShowUserMenu(!showUserMenu)}
+              className={
+                `flex max-w-[12rem] items-center gap-2 rounded-xl py-1.5 pl-1.5 pr-2 transition-colors ` +
+                `hover:bg-surface-100 dark:hover:bg-surface-800 ` +
+                `focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ` +
+                `focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] ` +
+                `dark:focus-visible:ring-brand-400`
+              }
+              onClick={() => {
+                setShowUserMenu((v) => !v);
+                setShowNotifications(false);
+              }}
               aria-expanded={showUserMenu}
-              aria-haspopup="true"
+              aria-haspopup="menu"
             >
-              <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center">
-                <User className="h-5 w-5 text-brand-600 dark:text-brand-300" />
-              </div>
-              <span className="hidden sm:block text-sm font-medium text-surface-700 dark:text-surface-200">
-                {user?.nombreCompleto || user?.nombre || 'Usuario'}
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                <User className="h-4 w-4" aria-hidden="true" />
               </span>
-              <ChevronDown className="h-4 w-4 text-surface-500 dark:text-surface-400 hidden sm:block" />
+              <span className="hidden min-w-0 truncate text-sm font-medium text-surface-700 dark:text-surface-200 sm:block">
+                {nombreVisible}
+              </span>
+              <ChevronDown className="hidden h-4 w-4 shrink-0 text-surface-400 sm:block" aria-hidden="true" />
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-surface-900 rounded-xl shadow-lg border border-surface-200 dark:border-surface-700 py-1 z-50 animate-slide-down">
-                <div className="px-4 py-3 border-b border-surface-100 dark:border-surface-800">
-                  <p className="text-sm font-medium text-surface-900 dark:text-white">{user?.nombreCompleto || user?.nombre}</p>
-                  <p className="text-xs text-surface-500 dark:text-surface-400">{user?.email}</p>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-50 dark:bg-brand-900/40 text-brand-700 dark:text-brand-200 mt-1">
-                    {user?.rol?.nombre}
-                  </span>
+              <div
+                className={
+                  `absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border ` +
+                  `border-surface-200 bg-white py-1 shadow-elevated animate-slide-down ` +
+                  `dark:border-surface-700 dark:bg-surface-900`
+                }
+                role="menu"
+                aria-label="Menu de usuario"
+              >
+                <div className="border-b border-surface-100 px-4 py-3 dark:border-surface-800">
+                  <p className="truncate text-sm font-medium text-surface-900 dark:text-surface-50">{nombreVisible}</p>
+                  <p className="truncate text-xs text-surface-500 dark:text-surface-400">{user?.email}</p>
+                  {user?.rol?.nombre && (
+                    <span className="mt-2 inline-flex items-center rounded-full border border-brand-100 bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700 dark:border-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
+                      {user.rol.nombre}
+                    </span>
+                  )}
                 </div>
                 <button
                   type="button"
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-surface-700 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800"
-                  onClick={() => navigate('/perfil')}
+                  role="menuitem"
+                  className={
+                    `flex w-full items-center gap-2 px-4 py-2.5 text-sm text-surface-700 ` +
+                    `hover:bg-surface-50 dark:text-surface-200 dark:hover:bg-surface-800 ` +
+                    `focus:outline-none focus-visible:bg-surface-50 dark:focus-visible:bg-surface-800`
+                  }
+                  onClick={() => {
+                    setShowUserMenu(false);
+                    navigate('/perfil');
+                  }}
                 >
-                  <User className="h-4 w-4" />
+                  <User className="h-4 w-4" aria-hidden="true" />
                   Mi perfil
                 </button>
                 <button
                   type="button"
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger-600 dark:text-danger-300 hover:bg-surface-50 dark:hover:bg-surface-800"
+                  role="menuitem"
+                  className={
+                    `flex w-full items-center gap-2 px-4 py-2.5 text-sm text-danger-600 ` +
+                    `hover:bg-danger-50 dark:text-danger-300 dark:hover:bg-danger-950/40 ` +
+                    `focus:outline-none focus-visible:bg-danger-50 dark:focus-visible:bg-danger-950/40`
+                  }
                   onClick={handleLogout}
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4" aria-hidden="true" />
                   Cerrar sesión
                 </button>
               </div>

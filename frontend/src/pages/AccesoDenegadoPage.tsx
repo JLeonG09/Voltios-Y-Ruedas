@@ -8,19 +8,25 @@ export const AccesoDenegadoPage = () => {
   const inicio = rutaInicioPorRol(rol);
 
   return (
-    <div className="min-h-[60vh] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white dark:bg-surface-900 rounded-2xl border border-surface-200 dark:border-surface-800 shadow-card p-8 text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-danger-100 dark:bg-danger-900/30 flex items-center justify-center">
-          <ShieldOff className="w-8 h-8 text-danger-600 dark:text-danger-400" aria-hidden="true" />
-        </div>
-        <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-2">Acceso denegado</h1>
-        <p className="text-surface-600 dark:text-surface-400 mb-6">
-          No tienes permiso para ver esta página. Si llegaste por un enlace, tu rol no incluye esta sección.
+    <div className="flex min-h-[60vh] items-center justify-center animate-fade-in">
+      <div className="empty-state max-w-md px-4">
+        <ShieldOff className="empty-state-icon text-danger-500 dark:text-danger-400" aria-hidden="true" />
+        <h1 className="empty-state-title">Acceso denegado</h1>
+        <p className="empty-state-text">
+          No tienes permiso para ver esta página. Si llegaste por un enlace, tu rol no incluye esta
+          sección.
         </p>
         <Link
           to={inicio}
           replace
-          className="inline-flex items-center justify-center px-4 py-2 bg-brand-600 text-white rounded-xl hover:bg-brand-700 transition-colors"
+          className={
+            `inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium ` +
+            `bg-brand-600 text-white shadow-card transition-colors ` +
+            `hover:bg-brand-700 ` +
+            `focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 ` +
+            `focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-bg)] ` +
+            `dark:bg-brand-500 dark:text-surface-950 dark:hover:bg-brand-400 dark:focus-visible:ring-brand-400`
+          }
         >
           Volver al inicio
         </Link>
