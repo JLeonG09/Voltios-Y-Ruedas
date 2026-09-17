@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 vi.mock('../services/authService', () => ({
   authService: {
@@ -12,8 +12,17 @@ import ReestablecerPasswordPage from './ReestablecerPasswordPage';
 
 const renderPage = (token?: string) =>
   render(
-    <MemoryRouter initialEntries={[token ? `/reestablecer-password?token=${token}` : '/reestablecer-password']}>
-      <ReestablecerPasswordPage />
+    <MemoryRouter
+      initialEntries={[
+        token
+          ? `/reestablecer-password/${encodeURIComponent(token)}`
+          : '/reestablecer-password',
+      ]}
+    >
+      <Routes>
+        <Route path="/reestablecer-password" element={<ReestablecerPasswordPage />} />
+        <Route path="/reestablecer-password/:token" element={<ReestablecerPasswordPage />} />
+      </Routes>
     </MemoryRouter>
   );
 
@@ -26,11 +35,13 @@ describe('ReestablecerPasswordPage', () => {
     renderPage();
     expect(screen.getByText('Enlace inválido')).toBeInTheDocument();
     expect(screen.getByText('Solicitar nuevo enlace')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Nueva contraseña')).not.toBeInTheDocument();
   });
 
   it('muestra el formulario cuando hay token', () => {
     renderPage('abc123');
-    expect(screen.getByText('Restablecer contraseña')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Restablecer contraseña' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Restablecer contraseña' })).toBeInTheDocument();
     expect(screen.getByLabelText('Nueva contraseña')).toBeInTheDocument();
     expect(screen.getByLabelText('Confirmar contraseña')).toBeInTheDocument();
   });
@@ -82,7 +93,7 @@ describe('ReestablecerPasswordPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Restablecer contraseña' }));
 
     await waitFor(() => {
-      expect(screen.getByText('La contraseña debe tener al menos 6 caracteres')).toBeInTheDocument();
+      expect(screen.getByText('La contraseña debe tener al menos 8 caracteres')).toBeInTheDocument();
     });
   });
 });
