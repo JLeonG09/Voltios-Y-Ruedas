@@ -60,3 +60,17 @@ Si ves esto, pará y tratá como **importante** o **bloqueante** hasta probarlo.
 - Password min alineado (Perfil/Register/Reset); si diverge = regresion.
 - Doble submit en modales CRUD sin loading = alarma.
 - Viewports 375/768/1280: needs_validation hasta Matriz-staging.
+
+## Voltios-Ruedas (2026-09-17)
+- (Voltios-Ruedas 2026-09-17) CI rojo Vitest: leer annotations del job Frontend primero.
+- (Voltios-Ruedas 2026-09-17) Tras Zod min 6→8, actualizar asserts de mensajes en tests de página.
+- (Voltios-Ruedas 2026-09-17) Matriz UI A1–C3 needs_validation humana post-P0.
+- (Voltios-Ruedas 2026-09-17) Pre-push frontend: npm test + npm run build.
+
+## Voltios-Ruedas (2026-09-17b)
+- (Voltios-Ruedas 2026-09-17b) Revalidacion 17-sep: QA ~3.5. Priorizar matriz Docker A1-C3 + hint UI password 6 a 8 alineado a schema.
+
+## Voltios-Ruedas (2026-09-17c)
+- (Voltios-Ruedas 2026-09-17c) Unificar password min 8 tambien en Perfil/Config (no solo Register hint).
+- (Voltios-Ruedas 2026-09-17c) Submit Inventario: no dejar loading={false} hardcodeado (doble submit).
+- (Voltios-Ruedas 2026-09-17c) Vercel fail no es gate QA funcional; anotar aparte de Actions verde.

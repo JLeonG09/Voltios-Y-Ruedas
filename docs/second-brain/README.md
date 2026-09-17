@@ -71,3 +71,16 @@ Pilares en **paralelo**, no en cascada: Thermos no reemplaza QA; QA no reemplaza
 **Pendiente humano/Docker:** ejecutar QA/Matriz-staging celdas A1-C3 (deep-link, logout, viewports). Hasta entonces marcar needs_validation.
 
 **No ejercido en review:** UI viva, contraste WCAG medido, viewports reales.
+
+## Voltios-Ruedas (2026-09-17)
+- (Voltios-Ruedas 2026-09-17) Estado: main incluye P0 security + fix CI tests (PR#1).
+- (Voltios-Ruedas 2026-09-17) Próximo foco Josue: rediseño UI sin romper authz de router (RutaConRoles / revalidarSesion / ErrorBoundary).
+- (Voltios-Ruedas 2026-09-17) Checklist pre-push frontend: `npm test` + `npm run build` en frontend/ (mismo script que CI).
+- (Voltios-Ruedas 2026-09-17) Tip Frontend: loginSchema ≠ register/reset (min password); tests de token con useParams, no `?token=`.
+
+
+## Estilo front del equipo ((Estilo-front Josue / Voltios-Ruedas 2026-09-17))
+
+Los fronts de Josue siguen el patron destilado en el vault general `Frontend/` (Consejos / Alarmas / Cuando-aplicar / Para-proyectos, seccion Estilo-front Josue).
+
+En este repo: tokens + app-shell + glass acotado + RutaConRoles + listados con loading/empty/error. No reinventar fuera de ese estilo sin actualizar el vault general.

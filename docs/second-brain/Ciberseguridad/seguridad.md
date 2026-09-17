@@ -72,3 +72,6 @@ Authz por recurso en API (no solo ocultar botones en React).
 
 - Vault general: `C:\Users\Leon\Documents\Obsidian\Second brain\Ciberseguridad\`
 - Mini SB: `docs/second-brain/Ciberseguridad/`
+
+## Voltios-Ruedas (2026-09-17b)
+- (Voltios-Ruedas 2026-09-17b) Revalidacion 17-sep: Ciber ~4. Priorizar Redis AUTH (multi-instancia/red) + mantener compose sin 5432/6379/8080 al host; revalidar P0 (V6/V7, JwtUtil) antes de reabrir.
